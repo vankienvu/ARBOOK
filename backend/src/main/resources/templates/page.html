@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title}">AR Textbook</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css?v=1.2">
+    <!-- Google Model Viewer for WebGL 3D Preview -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+    <!-- Chart.js for Teacher Analytics Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- GSAP for creative motion design -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script src="/js/cyber-hud.js" defer></script>
+</head>
+<body class="app-body">
+<!-- Space Canvas Background for Cinematic HUD Particles -->
+<canvas id="space-canvas" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:-1;"></canvas>
+
+<header class="topbar app-topbar">
+    <nav class="container-fluid app-nav">
+        <a class="brand-mark magnetic-btn" href="/">
+            <span class="brand-cube" aria-hidden="true"></span>
+            <span>AR Textbook Workspace</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn btn-soft btn-sm magnetic-btn" href="/student/scan" style="background: rgba(168, 85, 247, 0.2); border-color: var(--neon-indigo); color: #fff;">Quét AR</a>
+            <a class="btn btn-ghost btn-sm magnetic-btn" href="/guide">Hướng dẫn</a>
+            <a class="btn btn-soft btn-sm magnetic-btn" href="/login" sec:authorize="!isAuthenticated()">Đăng nhập</a>
+            <form method="post" action="/logout" sec:authorize="isAuthenticated()" class="d-inline">
+                <button class="btn btn-danger-soft btn-sm magnetic-btn" type="submit">Đăng xuất</button>
+            </form>
+        </div>
+    </nav>
+</header>
+  
+<main class="app-shell" th:classappend="${#authorization.expression('!isAuthenticated()')} ? 'no-rail' : ''">
+    <aside class="side-rail" aria-label="Điều hướng workspace" sec:authorize="isAuthenticated()">
+        <a href="/student/dashboard" class="magnetic-btn" sec:authorize="hasAnyRole('STUDENT', 'ADMIN')" th:classappend="${currentPath == '/student/dashboard' || #strings.startsWith(currentPath, '/student/lessons') || #strings.startsWith(currentPath, '/student/quizzes')} ? ' is-active' : ''">
+            <span>Học Sinh</span>
+            <small>Bài học, quiz, tiến độ</small>
+        </a>
+        <a href="/student/scan" class="magnetic-btn" sec:authorize="hasAnyRole('STUDENT', 'TEACHER', 'CONTENT_MANAGER', 'ADMIN')" th:classappend="${currentPath == '/student/scan'} ? ' is-active' : ''">
+            <span>Quét Marker AR</span>
+            <small>Camera quét trực tiếp</small>
+        </a>
+        <a href="/teacher/dashboard" class="magnetic-btn" sec:authorize="hasAnyRole('TEACHER', 'ADMIN')" th:classappend="${#strings.startsWith(currentPath, '/teacher')} ? ' is-active' : ''">
+            <span>Giáo Viên</span>
+            <small>Lớp học, bài tập giao</small>
+        </a>
+        <a href="/cms/dashboard" class="magnetic-btn" sec:authorize="hasAnyRole('CONTENT_MANAGER', 'ADMIN')" th:classappend="${#strings.startsWith(currentPath, '/cms')} ? ' is-active' : ''">
+            <span>Quản Lý Nội Dung</span>
+            <small>Marker, model, duyệt AR</small>
+        </a>
+        <a href="/admin/dashboard" class="magnetic-btn" sec:authorize="hasRole('ADMIN')" th:classappend="${#strings.startsWith(currentPath, '/admin')} ? ' is-active' : ''">
+            <span>Quản Trị Viên</span>
+            <small>Tài khoản, review queue</small>
+        </a>
+    </aside>
+
+    <section class="workspace">
+        <div class="workspace-hero">
+            <div>
+                <p class="eyebrow" th:text="${sectionLabel}">Workspace</p>
+                <h1 th:text="${title}">Dashboard</h1>
+                <p th:text="${subtitle}">Màn hình quản lý và hiển thị thông tin thực tế.</p>
+            </div>
+            <div class="workspace-status" aria-label="Trạng thái demo">
+                <span>Máy chủ hoạt động</span>
+                <span th:text="|${rows != null ? #lists.size(rows) : 0} bản ghi|">0 rows</span>
+                <span>Vuforia Online</span>
+            </div>
+        </div>
+
+        <!-- Student Quiz Layout -->
+        <div th:if="${questions != null}" class="data-panel glass-panel" style="margin-bottom: 2rem;">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Interactive Quiz Workspace</p>
+                    <h2>Làm bài trắc nghiệm</h2>
+                </div>
+            </div>
+            <div class="p-4">
+                <style>
+                    .question-card {
+                        background: rgba(255, 255, 255, 0.01) !important;
+                        border: 1px solid var(--border-color) !important;
+                        border-radius: var(--radius-lg) !important;
+                        padding: 24px !important;
+                        margin-bottom: 24px !important;
+                        transition: all var(--transition-normal);
+                    }
+                    .question-card:hover {
+                        border-color: rgba(168, 85, 247, 0.2) !important;
+                        box-shadow: 0 4px 20px rgba(168, 85, 247, 0.05);
+                    }
+                    .option-item {
+                        background: rgba(255, 255, 255, 0.01) !important;
+                        border: 1px solid var(--border-color) !important;
+                        border-radius: var(--radius-md) !important;
+                        padding: 16px 20px !important;
+                        cursor: pointer;
+                        transition: all var(--transition-fast) ease !important;
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        color: var(--text-secondary);
+                    }
+                    .option-item:hover {
+                        background: rgba(168, 85, 247, 0.08) !important;
+                        border-color: rgba(168, 85, 247, 0.3) !important;
+                        color: #fff !important;
+                    }
+                    .option-item.is-selected {
+                        background: rgba(168, 85, 247, 0.12) !important;
+                        border-color: var(--primary-color) !important;
+                        color: #fff !important;
+                    }
+                    .option-item input {
+                        accent-color: var(--primary-color) !important;
+                        width: 20px;
+                        height: 20px;
+                        cursor: pointer;
+                    }
+                </style>
+                <form id="quizForm">
+                    <div th:each="q : ${questions}" class="question-card">
+                        <h4 class="text-white mb-3" style="font-weight: 700; font-size: 1.15rem;" th:text="|Câu ${q.order_no}: ${q.question_text}|">Câu hỏi</h4>
+                        
+                        <div class="options-list vstack gap-2">
+                            <div th:each="a : ${answers}" th:if="${a.question_id == q.id}" class="option-item">
+                                <input th:type="${q.question_type == 'MULTIPLE_CHOICE' ? 'checkbox' : 'radio'}"
+                                       th:name="|q_${q.id}|"
+                                       th:value="${a.id}"
+                                       th:id="|ans_${a.id}|"
+                                       onchange="toggleOptionSelection(this)">
+                                <label th:for="|ans_${a.id}|" th:text="${a.answer_text}" style="cursor:pointer; width:100%;">Đáp án</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary mt-3 px-5">Nộp bài làm</button>
+                </form>
+                
+                <div id="quizResult" class="mt-4 p-5 rounded text-center glass-panel" style="display:none; border-color: rgba(168, 85, 247, 0.2) !important;">
+                    <div class="brand-cube mb-4 mx-auto" style="width: 48px; height: 48px; background: linear-gradient(135deg, #a855f7, #ec4899);"></div>
+                    <h3 class="mb-2" id="quizScoreText" style="font-size: 2rem; font-weight: 800;">Kết quả: 10/10</h3>
+                    <p id="quizFeedbackText" class="text-secondary small max-width-320 mx-auto">Bạn đã hoàn thành xuất sắc bài tập.</p>
+                    <a href="/student/dashboard" class="btn btn-soft btn-sm mt-4 px-4">Trở về Dashboard</a>
+                </div>
+            </div>
+
+            <script th:inline="javascript">
+                var quizId = [[${quizId}]];
+                function toggleOptionSelection(input) {
+                    const card = input.closest('.question-card');
+                    if (input.type === 'radio') {
+                        card.querySelectorAll('.option-item').forEach(el => el.classList.remove('is-selected'));
+                    }
+                    const optionItem = input.closest('.option-item');
+                    if (input.checked) {
+                        optionItem.classList.add('is-selected');
+                    } else {
+                        optionItem.classList.remove('is-selected');
+                    }
+                }
+
+                document.getElementById('quizForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var answers = [];
+                    document.querySelectorAll('.question-card').forEach(function(card) {
+                        var inputs = card.querySelectorAll('input:checked');
+                        inputs.forEach(function(input) {
+                            answers.push({
+                                questionId: parseInt(input.name.replace('q_', '')),
+                                answerId: parseInt(input.value)
+                            });
+                        });
+                    });
+
+                    fetch('/api/quizzes/' + quizId + '/submit', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ answers: answers })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        var resDiv = document.getElementById('quizResult');
+                        resDiv.style.display = 'block';
+                        var scoreText = document.getElementById('quizScoreText');
+                        var feedbackText = document.getElementById('quizFeedbackText');
+                        
+                        var result = data.data || data;
+                        if(result.score !== undefined) {
+                            scoreText.textContent = 'Kết quả: ' + result.score + ' / ' + result.totalScore;
+                            scoreText.className = result.passed ? 'text-success mb-2 font-weight-bold' : 'text-danger mb-2 font-weight-bold';
+                            feedbackText.innerHTML = result.passed 
+                                ? '<strong>Chúc mừng!</strong> Bạn đã vượt qua bài kiểm tra.' 
+                                : '<strong>Hãy thử lại!</strong> Điểm số chưa đạt yêu cầu.';
+                        } else {
+                            scoreText.textContent = 'Nộp bài thành công';
+                            scoreText.className = 'text-success mb-2 font-weight-bold';
+                            feedbackText.textContent = data.message || 'Kết quả đã được ghi nhận.';
+                        }
+                        resDiv.scrollIntoView({ behavior: 'smooth' });
+                    })
+                    .catch(err => {
+                        alert('Lỗi nộp bài: ' + err.message);
+                    });
+                });
+            </script>
+        </div>
+
+        <!-- Student Lesson Detail with WebGL 3D Preview (Animation & Labels Control) -->
+        <div th:if="${modelUrl != null}" class="row g-4" style="margin-bottom: 2rem;">
+            <div class="col-lg-7">
+                <section class="data-panel glass-panel h-100 mb-0">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Interactive 3D WebGL Viewer</p>
+                            <h2>Trực quan hóa 3D trực tuyến</h2>
+                        </div>
+                    </div>
+                    <div class="card bg-dark d-flex justify-content-center align-items-center" style="height: 450px; border-radius: 0 0 16px 16px; border: none; overflow: hidden; position: relative; background: radial-gradient(circle at center, #130a21 0%, #050209 100%) !important;">
+                        <model-viewer id="interactiveViewer"
+                                      th:src="${modelUrl}" 
+                                      alt="Mô hình 3D tương tác" 
+                                      auto-rotate 
+                                      camera-controls 
+                                      ar 
+                                      draco-decoder-path="https://www.gstatic.com/draco/versioned/decoders/1.5.6/"
+                                      style="width: 100%; height: 100%; --poster-color: transparent;">
+                        </model-viewer>
+                    </div>
+                </section>
+            </div>
+            <div class="col-lg-5">
+                <section class="data-panel glass-panel h-100 mb-0">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Tương tác mô hình</p>
+                            <h2>Bào quan & Hoạt cảnh</h2>
+                        </div>
+                    </div>
+                    <div class="p-4 text-light">
+                        <!-- Labels list -->
+                        <h4 class="mb-3 text-secondary font-weight-bold" style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Nhãn chú thích động</h4>
+                        <div class="labels-grid mb-3" th:if="${labels != null && !#lists.isEmpty(labels)}">
+                            <div th:each="l : ${labels}" class="d-flex flex-column mb-2">
+                                <button class="label-btn" th:text="${l.name}" th:onclick="highlightLabel([[${l.name}]], [[${l.description}]])">Label Name</button>
+                            </div>
+                        </div>
+                        <div th:if="${labels == null || #lists.isEmpty(labels)}" class="text-muted small mb-3">Không có nhãn chú thích cho mô hình này.</div>
+                        
+                        <div id="labelExplanation" class="mt-2 mb-4 p-3 rounded" style="display:none; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                            <strong id="expTitle" class="text-white text-glow-primary">Nhân tế bào</strong>
+                            <p id="expText" class="text-secondary small mb-0 mt-1">Giải thích bào quan.</p>
+                        </div>
+                        
+                        <!-- Animations list -->
+                        <h4 class="mb-3 mt-4 text-secondary font-weight-bold" style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Bộ hoạt cảnh (Animations)</h4>
+                        <div class="vstack gap-2 mb-4" th:if="${animations != null && !#lists.isEmpty(animations)}">
+                            <button th:each="an : ${animations}" 
+                                    class="btn btn-soft btn-sm text-start" 
+                                    th:text="|▶ Chạy hoạt cảnh: ${an.name}|" 
+                                    th:onclick="play3dAnimation([[${an.name}]])">
+                                Run Animation
+                            </button>
+                        </div>
+                        <div th:if="${animations == null || #lists.isEmpty(animations)}" class="text-muted small mb-4">Không có hoạt cảnh nào cho mô hình này.</div>
+                        
+                        <!-- Quiz Quick Start Button -->
+                        <div th:if="${quiz != null}" class="mt-4 pt-3 border-top border-secondary" style="border-color: var(--border-color) !important;">
+                            <h4 class="mb-2 text-white text-glow-primary">Kiểm tra kiến thức</h4>
+                            <p class="text-secondary small">Hoàn thành bài quiz ngắn sau khi học mô hình.</p>
+                            <a th:href="|/student/quizzes/${quiz.id}|" class="btn btn-primary w-100 mt-2">Bắt đầu làm Quiz</a>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            
+            <script th:inline="javascript">
+                function highlightLabel(name, desc) {
+                    var expDiv = document.getElementById('labelExplanation');
+                    expDiv.style.display = 'block';
+                    document.getElementById('expTitle').textContent = name;
+                    document.getElementById('expText').textContent = desc;
+                }
+                
+                function play3dAnimation(animName) {
+                    var viewer = document.getElementById('interactiveViewer');
+                    viewer.animationName = animName;
+                    viewer.play();
+                }
+            </script>
+        </div>
+
+        <!-- Teacher Class Analytics & Progress Dashboard -->
+        <div th:if="${analytics != null}" class="row g-4" style="margin-bottom: 2rem;">
+            <div class="col-lg-6">
+                <section class="data-panel mb-0 h-100">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Phân tích lớp học</p>
+                            <h2>Phổ điểm Quiz của lớp</h2>
+                        </div>
+                    </div>
+                    <div class="p-4 d-flex justify-content-center" style="position: relative; height: 300px;">
+                        <canvas id="quizDistributionChart"></canvas>
+                    </div>
+                </section>
+            </div>
+            <div class="col-lg-6">
+                <section class="data-panel mb-0 h-100">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Tiến độ bài tập</p>
+                            <h2>Trạng thái nộp bài</h2>
+                        </div>
+                    </div>
+                    <div class="p-4 d-flex justify-content-center" style="position: relative; height: 300px;">
+                        <canvas id="assignmentProgressChart"></canvas>
+                    </div>
+                </section>
+            </div>
+
+            <script th:inline="javascript">
+                var quizData = [[${analytics.quizDistribution}]];
+                var assignmentData = [[${analytics.assignmentProgress}]];
+
+                // Quiz Distribution Chart
+                var quizLabels = quizData.map(d => d.label);
+                var quizValues = quizData.map(d => d.value);
+                
+                new Chart(document.getElementById('quizDistributionChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: quizLabels.length > 0 ? quizLabels : ['Chưa có dữ liệu'],
+                        datasets: [{
+                            label: 'Số học sinh đạt điểm',
+                            data: quizValues.length > 0 ? quizValues : [0],
+                            backgroundColor: 'rgba(168, 85, 247, 0.65)',
+                            borderColor: '#a855f7',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        }
+                    }
+                });
+
+                // Assignment Progress Chart
+                var assLabels = assignmentData.map(d => d.label);
+                var assValues = assignmentData.map(d => d.value);
+
+                new Chart(document.getElementById('assignmentProgressChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: assLabels.length > 0 ? assLabels : ['Chưa giao bài'],
+                        datasets: [{
+                            data: assValues.length > 0 ? assValues : [1],
+                            backgroundColor: ['#ec4899', '#a855f7', '#d946ef', '#f43f5e'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { color: '#94a3b8' } }
+                        }
+                    }
+                });
+            </script>
+        </div>
+
+        <!-- Admin Content Review Queue -->
+        <section class="data-panel" th:if="${pendingReviews != null}" style="margin-bottom: 2rem;">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Hàng chờ kiểm duyệt</p>
+                    <h2>Duyệt nội dung AR mới</h2>
+                </div>
+            </div>
+            <div class="p-3">
+                <div th:if="${#lists.isEmpty(pendingReviews)}" class="text-muted p-3">Hàng đợi kiểm duyệt hiện đang trống.</div>
+                
+                <div th:each="rev : ${pendingReviews}" class="review-item p-3 mb-3 rounded" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color);" th:id="|review_${rev.ar_content_id}|">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="text-white mb-1" th:text="${rev.content_title}">Content Title</h4>
+                            <p class="text-secondary small mb-0" th:text="|Người tạo: ${rev.requested_by_name} | Yêu cầu vào: ${rev.requested_at}|">Details</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary btn-sm" th:onclick="approveReview([[${rev.ar_content_id}]])">Phê duyệt</button>
+                            <button class="btn btn-danger-soft btn-sm" th:onclick="rejectReview([[${rev.ar_content_id}]])">Từ chối</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script th:inline="javascript">
+                function approveReview(contentId) {
+                    if(!confirm('Bạn có chắc muốn phê duyệt xuất bản nội dung AR này không?')) return;
+                    fetch('/api/admin/ar-contents/' + contentId + '/approve', {
+                        method: 'POST'
+                    })
+                    .then(response => {
+                        if(response.ok) {
+                            var item = document.getElementById('review_' + contentId);
+                            item.style.transition = 'all 0.5s ease';
+                            item.style.opacity = '0';
+                            setTimeout(() => { item.remove(); }, 500);
+                        } else {
+                            alert('Lỗi phê duyệt nội dung.');
+                        }
+                    });
+                }
+
+                function rejectReview(contentId) {
+                    var comment = prompt('Nhập lý do từ chối:');
+                    if(comment === null) return;
+                    fetch('/api/admin/ar-contents/' + contentId + '/reject', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ comment: comment })
+                    })
+                    .then(response => {
+                        if(response.ok) {
+                            var item = document.getElementById('review_' + contentId);
+                            item.style.transition = 'all 0.5s ease';
+                            item.style.opacity = '0';
+                            setTimeout(() => { item.remove(); }, 500);
+                        } else {
+                            alert('Lỗi từ chối nội dung.');
+                        }
+                    });
+                }
+            </script>
+        </section>
+
+        <!-- General Data Panel (Default Fallback Layout) -->
+        <section class="data-panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Dữ liệu hệ thống</p>
+                    <h2>Chi tiết cơ sở dữ liệu</h2>
+                </div>
+                <a class="btn btn-soft btn-sm" href="/">Trang chủ</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table app-table align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th>Cột thông tin</th>
+                        <th>Dữ liệu / Giá trị</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${rows}">
+                        <td th:text="${row['label'] ?: row['email'] ?: row['marker_code'] ?: row['title'] ?: row['student_name'] ?: row['id']}">Label</td>
+                        <td th:text="${row['value'] ?: row['status'] ?: row['marker_name'] ?: row['lesson_title'] ?: row['email'] ?: row['progress_percent']}">Value</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Upload 3D Model Panel (only for CMS /cms/models) -->
+        <section class="data-panel" th:if="${currentPath == '/cms/models'}" style="margin-top: 2rem;">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Tài nguyên học liệu</p>
+                    <h2>Tải lên mô hình 3D (.glb, .gltf)</h2>
+                </div>
+            </div>
+            <div class="card p-4 bg-dark text-light border-0" style="border-radius: 0 0 16px 16px;">
+                <form id="uploadModelForm">
+                    <div class="mb-3">
+                        <label for="modelFile" class="form-label text-secondary">Chọn file mô hình:</label>
+                        <input class="form-control bg-secondary text-light border-0" type="file" id="modelFile" accept=".glb,.gltf" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Bắt đầu tải lên</button>
+                </form>
+                <div id="uploadStatus" class="mt-3 text-info" style="display:none;">Đang xử lý tải lên...</div>
+            </div>
+            <script>
+                document.getElementById('uploadModelForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var fileInput = document.getElementById('modelFile');
+                    if(fileInput.files.length === 0) return;
+                    var file = fileInput.files[0];
+                    var formData = new FormData();
+                    formData.append('file', file);
+                    
+                    var statusDiv = document.getElementById('uploadStatus');
+                    statusDiv.style.display = 'block';
+                    statusDiv.textContent = 'Đang truyền tải file lên máy chủ...';
+                    
+                    fetch('/api/models/upload', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        statusDiv.style.display = 'block';
+                        if(data.status === 'success' || data.success || data.data) {
+                            statusDiv.className = 'mt-3 text-success';
+                            var res = data.data || data;
+                            statusDiv.innerHTML = '<strong>Tải lên thành công!</strong> Tệp lưu tại: <code>' + res.fileUrl + '</code>';
+                            setTimeout(() => { window.location.reload(); }, 2500);
+                        } else {
+                            statusDiv.className = 'mt-3 text-danger';
+                            statusDiv.textContent = 'Lỗi: ' + (data.message || 'Gặp sự cố không mong muốn');
+                        }
+                    })
+                    .catch(error => {
+                        statusDiv.style.display = 'block';
+                        statusDiv.className = 'mt-3 text-danger';
+                        statusDiv.textContent = 'Sự cố kết nối mạng hoặc phân quyền: ' + error.message;
+                    });
+                });
+            </script>
+        </section>
+    </section>
+</main>
+</body>
+</html>

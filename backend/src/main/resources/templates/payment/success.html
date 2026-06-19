@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Thanh toán thành công - AR Textbook</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css?v=1.2">
+    <!-- GSAP for creative motion design -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="/js/cyber-hud.js" defer></script>
+    <style>
+        .status-icon-container {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 0, 160, 0.1);
+            border: 2px solid #ff00a0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            box-shadow: 0 0 20px rgba(255, 0, 160, 0.4);
+            animation: pulseSuccess 2s infinite alternate;
+        }
+        @keyframes pulseSuccess {
+            0% { box-shadow: 0 0 15px rgba(255, 0, 160, 0.3); transform: scale(1); }
+            100% { box-shadow: 0 0 30px rgba(255, 0, 160, 0.6); transform: scale(1.05); }
+        }
+        .status-icon {
+            font-size: 40px;
+            color: #ff00a0;
+            line-height: 1;
+        }
+        .receipt-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 48px 40px;
+            max-width: 540px;
+            width: 100%;
+            margin: 80px auto;
+            text-align: center;
+            box-shadow: var(--shadow-neon);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-color: rgba(168, 85, 247, 0.25);
+            position: relative;
+            overflow: hidden;
+        }
+        .receipt-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--grad-indigo-blue);
+        }
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .receipt-row:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body class="auth-body">
+<!-- Space Canvas Background for Cinematic HUD Particles -->
+<canvas id="space-canvas" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:-1;"></canvas>
+
+<main class="container d-flex align-items-center justify-content-center min-vh-100 p-3">
+    <section class="receipt-card animate-fade-in">
+        <div class="status-icon-container">
+            <span class="status-icon">✓</span>
+        </div>
+        <p class="eyebrow text-glow-primary" style="color: #ff00a0; font-weight: 700; letter-spacing: 0.1em;">GIAO DỊCH THÀNH CÔNG</p>
+        <h2 class="text-white font-weight-bold mb-4" style="font-family: 'Outfit', sans-serif;">Cảm ơn bạn!</h2>
+        <p class="text-secondary small mb-4">Tài khoản của bạn đã được nâng cấp lên gói <strong class="text-white">Teacher Premium</strong> thành công. Bạn hiện đã có thể truy cập toàn bộ các tính năng cao cấp.</p>
+
+        <div class="bg-dark rounded-4 p-4 mb-4 text-start" style="background: rgba(10, 6, 20, 0.6) !important; border: 1px solid rgba(255,255,255,0.03);">
+            <div class="receipt-row">
+                <span class="text-secondary small">Mã tham chiếu:</span>
+                <strong class="text-white small" th:text="${txnRef}">REF-123456</strong>
+            </div>
+            <div class="receipt-row">
+                <span class="text-secondary small">Số tiền thanh toán:</span>
+                <strong class="text-white small" style="color: #ff00a0 !important;">190.000 VND</strong>
+            </div>
+            <div class="receipt-row">
+                <span class="text-secondary small">Nội dung thanh toán:</span>
+                <span class="text-white small text-end" th:text="${description}">Đăng ký gói Teacher Premium</span>
+            </div>
+            <div class="receipt-row" th:if="${responseCode != null}">
+                <span class="text-secondary small">Cổng thanh toán:</span>
+                <span class="text-white small">VNPAY Sandbox</span>
+            </div>
+        </div>
+
+        <div class="vstack gap-2">
+            <a href="/teacher/dashboard" class="btn btn-primary w-100 py-3 magnetic-btn" style="background: var(--grad-indigo-blue); border: none;">Vào Workspace Giáo viên</a>
+            <a href="/" class="btn btn-ghost w-100 py-3 magnetic-btn">Quay lại trang chủ</a>
+        </div>
+    </section>
+</main>
+</body>
+</html>

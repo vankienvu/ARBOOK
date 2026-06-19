@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quản lý Nội dung - AR Textbook</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css?v=1.2">
+    <!-- Google Model Viewer for WebGL 3D Preview -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+    <!-- GSAP for creative motion design -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="/js/cyber-hud.js" defer></script>
+    <style>
+        .preview-box {
+            width: 100%;
+            height: 350px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: #160f24;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            border-radius: 16px;
+        }
+        .modal-header { border-bottom: 1px solid var(--border-color); }
+        .modal-footer { border-top: 1px solid var(--border-color); }
+    </style>
+</head>
+<body class="app-body">
+<header class="topbar app-topbar">
+    <nav class="container-fluid app-nav">
+        <a class="brand-mark" href="/">
+            <span class="brand-cube" aria-hidden="true"></span>
+            <span class="text-glow-primary">AR Textbook Workspace</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn btn-soft btn-sm px-3 magnetic-btn" href="/student/scan" style="background: rgba(168, 85, 247, 0.15) !important; border-color: rgba(168, 85, 247, 0.3) !important; color: #fff !important;">Quét AR</a>
+            <a class="btn btn-ghost btn-sm magnetic-btn" href="/guide">Hướng dẫn</a>
+            <form method="post" action="/logout" sec:authorize="isAuthenticated()" class="d-inline">
+                <button class="btn btn-danger-soft btn-sm magnetic-btn" type="submit">Đăng xuất</button>
+            </form>
+        </div>
+    </nav>
+</header>
+
+<main class="app-shell" style="opacity: 0;">
+    <aside class="side-rail animate-aside" aria-label="Điều hướng workspace">
+        <a href="#" class="nav-tab is-active magnetic-btn" data-tab="textbooks">
+            <span>Sách giáo khoa</span>
+            <small>Cấu trúc SGK & bài học</small>
+        </a>
+        <a href="#" class="nav-tab magnetic-btn" data-tab="models">
+            <span>Mô hình 3D (.glb)</span>
+            <small>Thư viện vật thể & Upload</small>
+        </a>
+        <a href="#" class="nav-tab magnetic-btn" data-tab="markers">
+            <span>Markers quét</span>
+            <small>Mã nhận dạng & hình ảnh</small>
+        </a>
+        <a href="#" class="nav-tab magnetic-btn" data-tab="ar-contents">
+            <span>Nội dung AR</span>
+            <small>Khớp bài học, marker, model</small>
+        </a>
+    </aside>
+
+    <section class="workspace animate-workspace">
+        <div class="workspace-hero">
+            <div>
+                <p class="eyebrow">CMS WORKSPACE</p>
+                <h1 id="tabTitle" class="text-glow-primary">Quản Lý Sách Giáo Khoa</h1>
+                <p id="tabSubtitle">Khai báo cấu trúc môn học, sách giáo khoa, bài học và tải lên tài nguyên AR tương ứng.</p>
+            </div>
+            <div class="workspace-status">
+                <span>CMS Manager</span>
+            </div>
+        </div>
+
+        <!-- TAB 1: TEXTBOOKS -->
+        <div id="tabContent_textbooks" class="tab-pane-content" style="opacity: 1;">
+            <section class="data-panel cyber-panel">
+                <div class="panel-heading d-flex justify-content-between align-items-center">
+                    <h2>Danh sách Sách Giáo Khoa</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="table app-table mb-0 align-middle">
+                        <thead>
+                        <tr>
+                            <th>Tên sách</th>
+                            <th>Môn học</th>
+                            <th>Khối lớp</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="book : ${textbooks}">
+                            <td><strong class="text-white" th:text="${book.title}">Sinh học 10</strong></td>
+                            <td th:text="${book.subject_name}">Sinh học</td>
+                            <td th:text="${book.grade_name}">Khối 10</td>
+                            <td>
+                                <span class="badge bg-success" th:text="${book.status}">PUBLISHED</span>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 2: MODELS -->
+        <div id="tabContent_models" class="tab-pane-content d-none" style="opacity: 0;">
+            <section class="data-panel cyber-panel mb-4">
+                <div class="panel-heading">
+                    <h2>Tải Lên Mô Hình 3D GLB/GLTF</h2>
+                </div>
+                <div class="p-4 text-light">
+                    <form id="uploadModelForm">
+                        <div class="mb-3">
+                            <label for="modelFile" class="form-label text-secondary small font-weight-bold">Chọn file mô hình định dạng .glb hoặc .gltf:</label>
+                            <input class="form-control" type="file" id="modelFile" accept=".glb,.gltf" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm magnetic-btn">Bắt đầu tải lên</button>
+                    </form>
+                    <div id="uploadStatus" class="mt-3 text-info small" style="display:none;">Đang xử lý tải lên...</div>
+                </div>
+            </section>
+
+            <section class="data-panel cyber-panel">
+                <div class="panel-heading d-flex justify-content-between align-items-center">
+                    <h2>Thư Viện Mô Hình 3D</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="table app-table mb-0 align-middle">
+                        <thead>
+                        <tr>
+                            <th>Tên mô hình</th>
+                            <th>Mô tả</th>
+                            <th>Định dạng</th>
+                            <th>Dung lượng</th>
+                            <th>Trạng thái</th>
+                            <th>WebGL Preview</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="m : ${models}">
+                            <td><strong class="text-white" th:text="${m.name}">Tế bào</strong></td>
+                            <td class="small text-secondary" th:text="${m.description}">Mô tả mô hình.</td>
+                            <td><code th:text="${m.format}">GLB</code></td>
+                            <td th:text="|${m.size_mb} MB|">1.50 MB</td>
+                            <td>
+                                <span class="badge bg-success" th:text="${m.status}">PUBLISHED</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-soft btn-sm magnetic-btn" th:onclick="open3dPreview([[${m.file_url}]], [[${m.name}]])">Xem 3D</button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 3: MARKERS -->
+        <div id="tabContent_markers" class="tab-pane-content d-none" style="opacity: 0;">
+            <section class="data-panel cyber-panel">
+                <div class="panel-heading d-flex justify-content-between align-items-center">
+                    <h2>Quản Lý Markers Quét</h2>
+                    <button class="btn btn-primary btn-sm magnetic-btn" data-bs-toggle="modal" data-bs-target="#createMarkerModal">Khai báo Marker mới</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table app-table mb-0 align-middle">
+                        <thead>
+                        <tr>
+                            <th>Ảnh Marker</th>
+                            <th>Mã Marker</th>
+                            <th>Tên Marker</th>
+                            <th>Trang sách</th>
+                            <th>Trạng thái</th>
+                            <th>Hành động</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="mk : ${markers}">
+                            <td>
+                                <img th:src="${mk.image_url}" alt="Marker Image" style="width: 50px; height: 50px; object-fit: contain; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 4px;">
+                            </td>
+                            <td><code th:text="${mk.marker_code}">BIO_CELL_001</code></td>
+                            <td><strong class="text-white" th:text="${mk.marker_name}">Marker tế bào</strong></td>
+                            <td th:text="|Trang ${mk.page_number}|">Trang 12</td>
+                            <td>
+                                <span class="badge bg-success" th:text="${mk.status}">ACTIVE</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-soft btn-sm magnetic-btn" th:onclick="showQrGenerator([[${mk.marker_code}]], [[${mk.marker_name}]])">Mã QR</button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 4: AR CONTENTS -->
+        <div id="tabContent_ar-contents" class="tab-pane-content d-none" style="opacity: 0;">
+            <section class="data-panel cyber-panel">
+                <div class="panel-heading d-flex justify-content-between align-items-center">
+                    <h2>Quản Lý Nội Dung Khớp AR</h2>
+                    <button class="btn btn-primary btn-sm magnetic-btn" data-bs-toggle="modal" data-bs-target="#createArContentModal">Khớp nội dung AR mới</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table app-table mb-0 align-middle">
+                        <thead>
+                        <tr>
+                            <th>Tiêu đề AR</th>
+                            <th>Bài học</th>
+                            <th>Mã Marker</th>
+                            <th>Mô hình 3D</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="ac : ${arContents}" th:id="|ar_${ac.id}|">
+                            <td><strong class="text-white" th:text="${ac.title}">Mô hình Tế bào 3D</strong></td>
+                            <td th:text="${ac.lesson_title}">Bài học</td>
+                            <td><code th:text="${ac.marker_code}">BIO_CELL_001</code></td>
+                            <td th:text="${ac.model_name}">Cell model</td>
+                            <td>
+                                <span class="badge" th:classappend="${ac.status == 'PUBLISHED' ? 'bg-success' : ac.status == 'PENDING_REVIEW' ? 'bg-info' : 'bg-secondary'}" th:text="${ac.status}">DRAFT</span>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-soft btn-sm magnetic-btn" th:if="${ac.status == 'DRAFT' || ac.status == 'REJECTED'}" th:onclick="submitReview([[${ac.id}]])">Gửi duyệt</button>
+                                    <a th:href="@{/cms/ar-contents/{id}/preview(id=${ac.id})}" class="btn btn-ghost btn-sm magnetic-btn">Xem chi tiết</a>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </section>
+</main>
+
+<!-- WebGL 3D PREVIEW MODAL -->
+<div class="modal fade" id="preview3dModal" tabindex="-1" aria-labelledby="preview3dModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title font-weight-bold" id="preview3dModalLabel">Xem thử mô hình 3D trực tuyến</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="preview-box">
+                    <model-viewer id="previewModalViewer" auto-rotate camera-controls draco-decoder-path="https://www.gstatic.com/draco/versioned/decoders/1.5.6/" style="width:100%; height:100%; --poster-color: transparent;"></model-viewer>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary magnetic-btn" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CREATE MARKER MODAL -->
+<div class="modal fade" id="createMarkerModal" tabindex="-1" aria-labelledby="createMarkerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="createMarkerForm">
+                <div class="modal-header">
+                    <h5 class="modal-title font-weight-bold" id="createMarkerModalLabel">Khai báo Marker quét mới</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body vstack gap-3">
+                    <div class="form-group">
+                        <label class="form-label text-secondary small font-weight-bold">Trang sách giáo khoa gắn liền</label>
+                        <select class="form-select bg-dark text-white border-secondary" id="mkPageId" required>
+                            <option th:each="p : ${pagesList}" th:value="${p.id}" th:text="${p.title}">Trang 12</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-secondary small font-weight-bold">Mã định danh Marker (Duy nhất)</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="mkCode" placeholder="BIO_CELL_002" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-secondary small font-weight-bold">Tên Marker</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="mkName" placeholder="Marker cấu trúc ty thể" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label text-secondary small font-weight-bold">Loại Marker</label>
+                        <select class="form-select bg-dark text-white border-secondary" id="mkType" required>
+                            <option value="IMAGE_TARGET">Image Target (NFT)</option>
+                            <option value="QR_CODE">QR Code</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost magnetic-btn" data-bs-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-primary magnetic-btn">Lưu Marker</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- CREATE AR CONTENT MODAL -->
+<div class="modal fade" id="createArContentModal" tabindex="-1" aria-labelledby="createArContentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="createArContentForm">
+                <div class="modal-header">
+                    <h5 class="modal-title font-weight-bold" id="createArContentModalLabel">Khớp nối nội dung AR mới</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-6 form-group">
+                        <label class="form-label text-secondary small font-weight-bold">Bài học sách giáo khoa</label>
+                        <select class="form-select bg-dark text-white border-secondary" id="acLessonId" required>
+                            <option th:each="l : ${lessonsList}" th:value="${l.id}" th:text="${l.title}">Tế bào</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label class="form-label text-secondary small font-weight-bold">Marker quét tương ứng</label>
+                        <select class="form-select bg-dark text-white border-secondary" id="acMarkerId" required>
+                            <option th:each="m : ${markersList}" th:value="${m.id}" th:text="${m.marker_code}">BIO_CELL_001</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label class="form-label text-secondary small font-weight-bold">Mô hình 3D mặc định</label>
+                        <select class="form-select bg-dark text-white border-secondary" id="acModelId" required>
+                            <option th:each="md : ${modelsList}" th:value="${md.id}" th:text="${md.name}">Cell model</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label class="form-label text-secondary small font-weight-bold">Tiêu đề hiển thị</label>
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="acTitle" placeholder="Mô hình 3D Tế bào sinh học" required>
+                    </div>
+                    <div class="col-12 form-group">
+                        <label class="form-label text-secondary small font-weight-bold">Mô tả nội dung</label>
+                        <textarea class="form-control bg-dark text-white border-secondary" id="acDesc" rows="3" placeholder="Nhập mô tả bài học khoa học hiển thị dạng 3D..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost magnetic-btn" data-bs-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-primary magnetic-btn">Lưu Khớp Nối</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- QR CODE GENERATOR MODAL -->
+<div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content text-center" style="background: #160f24; border: 1px solid var(--border-color); color: #fff; border-radius: 16px;">
+            <div class="modal-header justify-content-center border-0 pb-0">
+                <h5 class="modal-title font-weight-bold" id="qrModalLabel">Mã QR Marker</h5>
+                <button type="button" class="btn-close btn-close-white position-absolute end-0 me-3" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 d-flex flex-column align-items-center">
+                <div class="p-3 bg-white rounded-3 mb-3" style="box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);">
+                    <canvas id="qrCanvas" style="display: block;"></canvas>
+                </div>
+                <p id="qrMarkerText" class="text-secondary small mb-3">BIO_CELL_001</p>
+                <a id="downloadQrBtn" href="#" class="btn btn-primary w-100 btn-sm magnetic-btn">Tải hình ảnh (PNG)</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QRious CDN for QR Code Generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<!-- Bootstrap JS Bundle for Modals -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+    // JS tab controls
+    const tabs = document.querySelectorAll('.nav-tab');
+    const tabPanes = document.querySelectorAll('.tab-pane-content');
+    const tabTitle = document.getElementById('tabTitle');
+    const tabSubtitle = document.getElementById('tabSubtitle');
+
+    const tabData = {
+        textbooks: {
+            title: "Quản Lý Sách Giáo Khoa",
+            subtitle: "Khai báo cấu trúc môn học, sách giáo khoa, bài học và tải lên tài nguyên AR tương ứng."
+        },
+        models: {
+            title: "Quản Lý Mô Hình 3D",
+            subtitle: "Lưu trữ tệp mô hình định dạng GLB/GLTF, kiểm tra trực tuyến và ánh xạ vào nội dung."
+        },
+        markers: {
+            title: "Quản Lý Mã Markers",
+            subtitle: "Khai báo trang sách giáo khoa chứa Marker quét và mã Vuforia Image Target."
+        },
+        "ar-contents": {
+            title: "Thiết Lập Khớp Nội Dung AR",
+            subtitle: "Gắn kết một bài giảng khoa học, một marker quét và mô hình 3D mặc định với nhau."
+        }
+    };
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            const tabName = this.getAttribute('data-tab');
+            const targetPane = document.getElementById('tabContent_' + tabName);
+            const currentPane = document.querySelector('.tab-pane-content:not(.d-none)');
+            
+            if (currentPane === targetPane) return;
+            
+            tabs.forEach(t => t.classList.remove('is-active'));
+            this.classList.add('is-active');
+
+            // GSAP cross fade transition
+            if (currentPane) {
+                gsap.to(currentPane, {
+                    opacity: 0,
+                    y: 15,
+                    duration: 0.25,
+                    onComplete: () => {
+                        currentPane.classList.add('d-none');
+                        targetPane.classList.remove('d-none');
+                        
+                        // Update title info
+                        tabTitle.textContent = tabData[tabName].title;
+                        tabSubtitle.textContent = tabData[tabName].subtitle;
+                        
+                        gsap.fromTo(targetPane, {
+                            opacity: 0,
+                            y: 15
+                        }, {
+                            opacity: 1,
+                            y: 0,
+                            duration: 0.35,
+                            ease: "power2.out"
+                        });
+                    }
+                });
+            } else {
+                targetPane.classList.remove('d-none');
+                tabTitle.textContent = tabData[tabName].title;
+                tabSubtitle.textContent = tabData[tabName].subtitle;
+                gsap.to(targetPane, { opacity: 1, y: 0, duration: 0.35 });
+            }
+        });
+    });
+
+    // 3D Preview Modal Toggle
+    const previewModal = new bootstrap.Modal(document.getElementById('preview3dModal'));
+    const previewModalViewer = document.getElementById('previewModalViewer');
+    function open3dPreview(fileUrl, modelName) {
+        document.getElementById('preview3dModalLabel').textContent = `Xem thử mô hình: ${modelName}`;
+        previewModalViewer.src = fileUrl;
+        previewModal.show();
+    }
+
+    // AJAX 3D Model Upload Form Submit
+    const uploadForm = document.getElementById('uploadModelForm');
+    const uploadStatus = document.getElementById('uploadStatus');
+
+    uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById('modelFile');
+        if (fileInput.files.length === 0) return;
+        const file = fileInput.files[0];
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        uploadStatus.style.display = 'block';
+        uploadStatus.className = 'mt-3 text-info small';
+        uploadStatus.textContent = 'Đang tải tệp mô hình GLB lên máy chủ...';
+
+        fetch('/api/models/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success' || data.success || data.data) {
+                const res = data.data || data;
+                uploadStatus.className = 'mt-3 text-success small';
+                uploadStatus.innerHTML = `<strong>Tải lên thành công!</strong> Tệp lưu tại: <code>${res.fileUrl}</code>`;
+                
+                // Giao tiếp với API lưu database model
+                saveModelRecord(file.name.replace(/\.[^/.]+$/, ""), res.fileUrl, res.sizeMb);
+            } else {
+                uploadStatus.className = 'mt-3 text-danger small';
+                uploadStatus.textContent = 'Lỗi: ' + (data.message || 'Không thể lưu tệp.');
+            }
+        })
+        .catch(err => {
+            uploadStatus.className = 'mt-3 text-danger small';
+            uploadStatus.textContent = 'Sự cố mạng hoặc phân quyền: ' + err.message;
+        });
+    });
+
+    function saveModelRecord(name, fileUrl, sizeMb) {
+        fetch('/api/models', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: name,
+                description: 'Mô hình được tải lên qua CMS.',
+                fileUrl: fileUrl,
+                thumbnailUrl: fileUrl.replace('.glb', '.png'),
+                format: 'GLB',
+                sizeMb: sizeMb || 1.5,
+                polygonCount: 2000,
+                textureCount: 1,
+                status: 'PUBLISHED'
+            })
+        })
+        .then(res => {
+            setTimeout(() => { window.location.reload(); }, 2000);
+        });
+    }
+
+    // AJAX Create Marker Form
+    const createMarkerForm = document.getElementById('createMarkerForm');
+    createMarkerForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const pageId = parseInt(document.getElementById('mkPageId').value);
+        const code = document.getElementById('mkCode').value;
+        const name = document.getElementById('mkName').value;
+        const type = document.getElementById('mkType').value;
+
+        fetch('/api/ar-markers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                textbookPageId: pageId,
+                markerCode: code,
+                markerType: type,
+                markerName: name,
+                imageUrl: `/markers/${code}.svg`,
+                targetFileUrl: `/vuforia/${code}.dat`,
+                qualityScore: 90,
+                widthCm: 12,
+                heightCm: 8,
+                status: 'ACTIVE'
+            })
+        })
+        .then(res => {
+            alert('Lưu Marker mới thành công!');
+            window.location.reload();
+        });
+    });
+
+    // AJAX Create AR Content Form
+    const createArContentForm = document.getElementById('createArContentForm');
+    createArContentForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const lessonId = parseInt(document.getElementById('acLessonId').value);
+        const markerId = parseInt(document.getElementById('acMarkerId').value);
+        const modelId = parseInt(document.getElementById('acModelId').value);
+        const title = document.getElementById('acTitle').value;
+        const desc = document.getElementById('acDesc').value;
+
+        fetch('/api/ar-contents', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                lessonId: lessonId,
+                markerId: markerId,
+                defaultModelId: modelId,
+                title: title,
+                description: desc,
+                contentType: 'MODEL_3D',
+                instructionText: 'Đưa marker trước webcam để xem 3D.',
+                learningGoal: 'Nhận biết vật thể 3D trực quan.'
+            })
+        })
+        .then(res => {
+            alert('Khớp nối nội dung AR thành công!');
+            window.location.reload();
+        });
+    });
+
+    // Submit Review AJAX
+    function submitReview(contentId) {
+        if (!confirm('Bạn có chắc muốn gửi nội dung AR này yêu cầu Admin phê duyệt không?')) return;
+        fetch(`/api/ar-contents/${contentId}/submit-review`, {
+            method: 'POST'
+        })
+        .then(response => {
+            if (response.ok) {
+                alert('Đã gửi yêu cầu kiểm duyệt thành công!');
+                window.location.reload();
+            } else {
+                alert('Lỗi khi gửi yêu cầu duyệt.');
+            }
+        });
+    }
+
+    // QR Code Generator Function
+    const qrModal = new bootstrap.Modal(document.getElementById('qrModal'));
+    const qrCanvas = document.getElementById('qrCanvas');
+    const qrMarkerText = document.getElementById('qrMarkerText');
+    const downloadQrBtn = document.getElementById('downloadQrBtn');
+
+    function showQrGenerator(markerCode, markerName) {
+        qrMarkerText.textContent = `${markerCode} - ${markerName}`;
+        
+        // Scan URL to embed in QR code
+        const scanUrl = window.location.origin + "/student/scan?code=" + encodeURIComponent(markerCode);
+        
+        // Render QR Code on canvas
+        const qr = new QRious({
+            element: qrCanvas,
+            value: scanUrl,
+            size: 200,
+            background: 'white',
+            foreground: 'black',
+            level: 'H'
+        });
+
+        // Set download link
+        setTimeout(() => {
+            downloadQrBtn.href = qrCanvas.toDataURL("image/png");
+            downloadQrBtn.download = `qr_${markerCode}.png`;
+        }, 100);
+
+        qrModal.show();
+    }
+
+    }
+
+    window.addEventListener('load', () => {
+        gsap.to("main", { opacity: 1, duration: 0.5 });
+        gsap.from(".animate-aside", { x: -30, opacity: 0, duration: 0.6, ease: "power2.out" });
+        gsap.from(".animate-workspace", { x: 30, opacity: 0, duration: 0.6, ease: "power2.out" }, "-=0.4");
+        // Magnetic buttons are auto-initialized by cyber-hud.js
+    });
+</script>
+</body>
+</html>

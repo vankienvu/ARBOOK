@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chi Tiết Bài Học - AR Textbook</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css?v=1.2">
+    <!-- Google Model Viewer for WebGL 3D Preview -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+    <!-- GSAP for creative motion design -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="/js/cyber-hud.js" defer></script>
+    <style>
+        .label-btn {
+            background: rgba(168, 85, 247, 0.06) !important;
+            border: 1px solid rgba(168, 85, 247, 0.15) !important;
+            color: #d8b4fe !important;
+            padding: 12px 16px !important;
+            border-radius: var(--radius-md) !important;
+            font-size: 0.88rem !important;
+            font-weight: 600 !important;
+            transition: all var(--transition-fast) !important;
+            cursor: pointer;
+            text-align: left;
+        }
+        .label-btn:hover {
+            background: rgba(168, 85, 247, 0.12) !important;
+            border-color: var(--primary-color) !important;
+            color: #fff !important;
+        }
+        .chat-container {
+            background: rgba(5, 2, 9, 0.45) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--radius-lg) !important;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.4) !important;
+        }
+        .chat-message {
+            border-radius: var(--radius-md) !important;
+            padding: 12px 16px !important;
+            max-width: 85%;
+            font-size: 0.88rem !important;
+            line-height: 1.5 !important;
+            position: relative;
+        }
+        .ai-message {
+            background: rgba(168, 85, 247, 0.06) !important;
+            border: 1px solid rgba(168, 85, 247, 0.15) !important;
+            color: #e9d5ff !important;
+            align-self: flex-start;
+        }
+        .user-message {
+            background: rgba(236, 72, 153, 0.06) !important;
+            border: 1px solid rgba(236, 72, 153, 0.15) !important;
+            color: #fce7f3 !important;
+            align-self: flex-end;
+        }
+    </style>
+</head>
+<body class="app-body">
+<header class="topbar app-topbar">
+    <nav class="container-fluid app-nav">
+        <a class="brand-mark" href="/">
+            <span class="brand-cube" aria-hidden="true"></span>
+            <span class="text-glow-primary">AR Textbook Workspace</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn btn-soft btn-sm px-3 magnetic-btn" href="/student/scan" style="background: rgba(168, 85, 247, 0.15) !important; border-color: rgba(168, 85, 247, 0.3) !important; color: #fff !important;">Quét AR</a>
+            <a class="btn btn-ghost btn-sm magnetic-btn" href="/guide">Hướng dẫn</a>
+            <form method="post" action="/logout" sec:authorize="isAuthenticated()" class="d-inline">
+                <button class="btn btn-danger-soft btn-sm magnetic-btn" type="submit">Đăng xuất</button>
+            </form>
+        </div>
+    </nav>
+</header>
+
+<main class="app-shell" style="opacity: 0;">
+    <aside class="side-rail animate-aside" aria-label="Điều hướng workspace">
+        <a href="/student/dashboard" class="is-active magnetic-btn">
+            <span>Học Sinh</span>
+            <small>Bài học, quiz, tiến độ</small>
+        </a>
+        <a href="/student/scan" class="magnetic-btn">
+            <span>Quét Marker AR</span>
+            <small>Camera quét trực tiếp</small>
+        </a>
+    </aside>
+
+    <section class="workspace animate-workspace">
+        <div class="workspace-hero">
+            <div>
+                <p class="eyebrow">Student workspace</p>
+                <h1 th:text="${title}">Chi Tiết Bài Học</h1>
+                <p th:text="${subtitle}">Thông tin bài học, 3D interactive viewer và bài kiểm tra ngắn.</p>
+            </div>
+            <div class="workspace-status" aria-label="Trạng thái demo">
+                <span>Máy chủ hoạt động</span>
+                <span>Vuforia Online</span>
+            </div>
+        </div>
+
+        <div th:if="${modelUrl != null}" class="row g-4" style="margin-bottom: 2rem;">
+            <!-- Left Column: WebGL Interactive Viewer -->
+            <div class="col-lg-7">
+                <section class="data-panel cyber-panel h-100 mb-0 panel-viewer">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Interactive 3D WebGL Viewer</p>
+                            <h2>Trực quan hóa 3D trực tuyến</h2>
+                        </div>
+                    </div>
+                    <div class="card bg-dark d-flex justify-content-center align-items-center" style="height: 480px; border-radius: 0 0 16px 16px; border: none; overflow: hidden; position: relative; background: radial-gradient(circle at center, #130a21 0%, #050209 100%) !important;">
+                        <model-viewer id="interactiveViewer"
+                                      th:src="${modelUrl}" 
+                                      alt="Mô hình 3D tương tác" 
+                                      auto-rotate 
+                                      camera-controls 
+                                      ar 
+                                      draco-decoder-path="https://www.gstatic.com/draco/versioned/decoders/1.5.6/"
+                                      style="width: 100%; height: 100%; --poster-color: transparent;">
+                        </model-viewer>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Column: Interactive Deck & AI Chatbot -->
+            <div class="col-lg-5">
+                <section class="data-panel cyber-panel h-100 mb-0 panel-details">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Tương tác mô hình</p>
+                            <h2>Bào quan & Hoạt cảnh</h2>
+                        </div>
+                    </div>
+                    <div class="p-4 text-light">
+                        <!-- Labels list -->
+                        <h4 class="mb-3 text-secondary font-weight-bold" style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Nhãn chú thích động</h4>
+                        <div class="labels-grid mb-3" th:if="${labels != null && !#lists.isEmpty(labels)}">
+                            <div th:each="l : ${labels}" class="d-flex flex-column mb-2">
+                                <button class="label-btn magnetic-btn" th:text="${l.name}" th:onclick="highlightLabel([[${l.name}]], [[${l.description}]])">Label Name</button>
+                            </div>
+                        </div>
+                        <div th:if="${labels == null || #lists.isEmpty(labels)}" class="text-muted small mb-3">Không có nhãn chú thích cho mô hình này.</div>
+                        
+                        <div id="labelExplanation" class="mt-2 mb-4 p-3 rounded" style="display:none; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);">
+                            <strong id="expTitle" class="text-white text-glow-primary">Nhân tế bào</strong>
+                            <p id="expText" class="text-secondary small mb-0 mt-1">Giải thích bào quan.</p>
+                        </div>
+                        
+                        <!-- Animations list -->
+                        <h4 class="mb-3 mt-4 text-secondary font-weight-bold" style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">Bộ hoạt cảnh (Animations)</h4>
+                        <div class="vstack gap-2 mb-4" th:if="${animations != null && !#lists.isEmpty(animations)}">
+                            <button th:each="an : ${animations}" 
+                                    class="btn btn-soft btn-sm text-start magnetic-btn" 
+                                    th:text="|▶ Chạy hoạt cảnh: ${an.name}|" 
+                                    th:onclick="play3dAnimation([[${an.name}]])">
+                                Run Animation
+                            </button>
+                        </div>
+                        <div th:if="${animations == null || #lists.isEmpty(animations)}" class="text-muted small mb-4">Không có hoạt cảnh nào cho mô hình này.</div>
+                        
+                        <!-- Quiz start -->
+                        <div th:if="${quiz != null}" class="mt-4 pt-3 border-top border-secondary" style="border-color: var(--border-color) !important;">
+                            <h4 class="mb-2 text-white text-glow-primary">Kiểm tra kiến thức</h4>
+                            <p class="text-secondary small">Hoàn thành bài quiz ngắn sau khi học mô hình.</p>
+                            <a th:href="|/student/quizzes/${quiz.id}|" class="btn btn-primary w-100 mt-2 magnetic-btn">Bắt đầu làm Quiz</a>
+                        </div>
+
+                        <!-- AI Tutor Chatbot Panel -->
+                        <div class="mt-4 pt-3 border-top border-secondary" style="border-color: var(--border-color) !important;">
+                            <h4 class="mb-2 text-white text-glow-primary d-flex align-items-center gap-2">
+                                <span class="badge" style="background: var(--grad-indigo-blue); color: white; border: none; font-size: 0.65rem; font-weight: 800; padding: 4px 8px;">AI</span> Gia Sư Ảo AI Tutor
+                            </h4>
+                            <p class="text-secondary small">Hỏi AI bất kỳ kiến thức khoa học hoặc câu hỏi nào về bài học này.</p>
+                            
+                            <!-- Chat Box UI -->
+                            <div class="chat-container p-3 mb-2" style="height: 250px; overflow-y: auto;">
+                                <div id="chatHistory" class="chat-history small text-light d-flex flex-column gap-2">
+                                    <div class="chat-message ai-message">
+                                        <strong>🤖 AI Tutor:</strong> Xin chào! Tôi là Gia sư ảo AI. Hãy hỏi tôi bất cứ điều gì liên quan đến bài học này!
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Input -->
+                            <div class="input-group">
+                                <input type="text" id="chatInput" class="form-control bg-dark text-white border-secondary" placeholder="Nhập câu hỏi..." onkeydown="if(event.key === 'Enter') sendChatMessage()">
+                                <button class="btn btn-primary btn-sm px-3 magnetic-btn" type="button" onclick="sendChatMessage()" id="btnSendChat">Gửi</button>
+                            </div>
+                            <div id="chatLoader" class="text-center mt-2" style="display:none;">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status" style="border-color: var(--primary-color) transparent var(--primary-color) transparent;">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span class="text-muted small ms-1">AI đang suy nghĩ...</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            
+            <script th:inline="javascript">
+                function highlightLabel(name, desc) {
+                    var expDiv = document.getElementById('labelExplanation');
+                    expDiv.style.display = 'block';
+                    document.getElementById('expTitle').textContent = name;
+                    document.getElementById('expText').textContent = desc;
+                    
+                    gsap.fromTo(expDiv, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4 });
+                }
+                
+                function play3dAnimation(animName) {
+                    var viewer = document.getElementById('interactiveViewer');
+                    viewer.animationName = animName;
+                    viewer.play();
+                }
+
+                function getCookie(name) {
+                    let value = "; " + document.cookie;
+                    let parts = value.split("; " + name + "=");
+                    if (parts.length === 2) return parts.pop().split(";").shift();
+                }
+
+                async function sendChatMessage() {
+                    const inputEl = document.getElementById('chatInput');
+                    const message = inputEl.value.trim();
+                    if (!message) return;
+
+                    const btnSend = document.getElementById('btnSendChat');
+                    const loader = document.getElementById('chatLoader');
+                    const chatHistory = document.getElementById('chatHistory');
+
+                    const userMsgDiv = document.createElement('div');
+                    userMsgDiv.className = 'chat-message user-message';
+                    userMsgDiv.innerHTML = `<strong>Bạn:</strong> ${escapeHtml(message)}`;
+                    chatHistory.appendChild(userMsgDiv);
+                    
+                    inputEl.value = '';
+                    chatHistory.parentElement.scrollTop = chatHistory.parentElement.scrollHeight;
+
+                    // GSAP pop in for user message
+                    gsap.fromTo(userMsgDiv, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3 });
+
+                    loader.style.display = 'block';
+                    inputEl.disabled = true;
+                    btnSend.disabled = true;
+
+                    const pathParts = window.location.pathname.split('/');
+                    const lessonId = pathParts[pathParts.length - 1];
+
+                    try {
+                        const response = await fetch('/api/ai/chat', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-XSRF-TOKEN': getCookie('XSRF-TOKEN')
+                            },
+                            body: JSON.stringify({
+                                lessonId: parseInt(lessonId),
+                                message: message
+                            })
+                        });
+
+                        const result = await response.json();
+                        const aiMsgDiv = document.createElement('div');
+                        aiMsgDiv.className = 'chat-message ai-message';
+
+                        if (response.ok && result.success) {
+                            let formattedReply = result.data.reply
+                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                .replace(/\n/g, '<br>');
+                            
+                            // Typewriter-style stream reveal
+                            aiMsgDiv.innerHTML = `<strong>🤖 AI Tutor:</strong> `;
+                            chatHistory.appendChild(aiMsgDiv);
+                            
+                            const words = formattedReply.split(' ');
+                            let wordIndex = 0;
+                            
+                            function typeNextWord() {
+                                if (wordIndex < words.length) {
+                                    aiMsgDiv.innerHTML += (wordIndex === 0 ? '' : ' ') + words[wordIndex];
+                                    wordIndex++;
+                                    chatHistory.parentElement.scrollTop = chatHistory.parentElement.scrollHeight;
+                                    setTimeout(typeNextWord, 25);
+                                }
+                            }
+                            typeNextWord();
+                        } else {
+                            aiMsgDiv.innerHTML = `<strong>🤖 AI Tutor:</strong> <span class="text-danger">Lỗi: ${result.message || 'Không thể nhận phản hồi từ AI.'}</span>`;
+                            chatHistory.appendChild(aiMsgDiv);
+                            gsap.fromTo(aiMsgDiv, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3 });
+                        }
+                    } catch (error) {
+                        const aiMsgDiv = document.createElement('div');
+                        aiMsgDiv.className = 'chat-message ai-message';
+                        aiMsgDiv.innerHTML = `<strong>🤖 AI Tutor:</strong> <span class="text-danger">Lỗi kết nối: ${error.message}</span>`;
+                        chatHistory.appendChild(aiMsgDiv);
+                        gsap.fromTo(aiMsgDiv, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3 });
+                    } finally {
+                        loader.style.display = 'none';
+                        inputEl.disabled = false;
+                        btnSend.disabled = false;
+                        chatHistory.parentElement.scrollTop = chatHistory.parentElement.scrollHeight;
+                        inputEl.focus();
+                    }
+                }
+
+                function escapeHtml(text) {
+                    const map = {
+                        '&': '&amp;',
+                        '<': '&lt;',
+                        '>': '&gt;',
+                        '"': '&quot;',
+                        "'": '&#039;'
+                    };
+                    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+                }
+            </script>
+        </div>
+
+        <!-- Fallback metadata list -->
+        <section class="data-panel cyber-panel mt-4 panel-metadata">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Dữ liệu bài học</p>
+                    <h2>Chi tiết môn học & bài giảng</h2>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table app-table align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th>Cột thông tin</th>
+                        <th>Dữ liệu / Giá trị</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row : ${rows}">
+                        <td th:text="${row['label'] ?: row['email'] ?: row['marker_code'] ?: row['title'] ?: row['student_name'] ?: row['id']}">Label</td>
+                        <td th:text="${row['value'] ?: row['status'] ?: row['marker_name'] ?: row['lesson_title'] ?: row['email'] ?: row['progress_percent']}">Value</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </section>
+</main>
+
+<script>
+    window.addEventListener('load', () => {
+        // Page entry reveal
+        gsap.to("main", { opacity: 1, duration: 0.5 });
+        gsap.from(".animate-aside", { x: -30, opacity: 0, duration: 0.6, ease: "power2.out" });
+        gsap.from(".animate-workspace", { x: 30, opacity: 0, duration: 0.6, ease: "power2.out" }, "-=0.4");
+        
+        // Stagger panels
+        gsap.from(".panel-viewer", { opacity: 0, y: 30, duration: 0.8, ease: "power3.out", delay: 0.2 });
+        gsap.from(".panel-details", { opacity: 0, y: 30, duration: 0.8, ease: "power3.out", delay: 0.4 }, "-=0.6");
+        gsap.from(".panel-metadata", { opacity: 0, y: 30, duration: 0.8, ease: "power3.out", delay: 0.6 }, "-=0.6");
+    });
+</script>
+</body>
+</html>

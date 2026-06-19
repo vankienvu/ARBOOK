@@ -1,0 +1,17 @@
+.env
+backend/.env
+backend/target/
+*.log
+*.tgz
+
+UnityProject/Library/
+UnityProject/Temp/
+UnityProject/Obj/
+UnityProject/Build/
+UnityProject/Builds/
+UnityProject/Logs/
+UnityProject/UserSettings/
+.vs/
+.idea/
+dist/
+.build/

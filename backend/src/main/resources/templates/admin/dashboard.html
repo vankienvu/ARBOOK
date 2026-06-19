@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quản Trị Viên - AR Textbook</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css?v=1.2">
+    <!-- GSAP for creative motion design -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="/js/cyber-hud.js" defer></script>
+    <style>
+        .modal-content {
+            background: #0d0915 !important;
+            border: 1px solid var(--border-color) !important;
+            color: #fff !important;
+            border-radius: var(--radius-lg) !important;
+            box-shadow: var(--shadow-glow) !important;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+        }
+        .modal-header {
+            border-bottom: 1px solid var(--border-color) !important;
+        }
+        .modal-footer {
+            border-top: 1px solid var(--border-color) !important;
+        }
+        .review-item {
+            background: rgba(255, 255, 255, 0.01) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--radius-md) !important;
+            transition: border-color var(--transition-fast), background var(--transition-fast) !important;
+        }
+        .review-item:hover {
+            border-color: rgba(168, 85, 247, 0.25) !important;
+            background: rgba(255, 255, 255, 0.02) !important;
+        }
+    </style>
+</head>
+<body class="app-body">
+<header class="topbar app-topbar">
+    <nav class="container-fluid app-nav">
+        <a class="brand-mark" href="/">
+            <span class="brand-cube" aria-hidden="true"></span>
+            <span class="text-glow-primary">AR Textbook Workspace</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn btn-soft btn-sm px-3 magnetic-btn" href="/student/scan" style="background: rgba(168, 85, 247, 0.15) !important; border-color: rgba(168, 85, 247, 0.3) !important; color: #fff !important;">Quét AR</a>
+            <a class="btn btn-ghost btn-sm magnetic-btn" href="/guide">Hướng dẫn</a>
+            <form method="post" action="/logout" sec:authorize="isAuthenticated()" class="d-inline">
+                <button class="btn btn-danger-soft btn-sm magnetic-btn" type="submit">Đăng xuất</button>
+            </form>
+        </div>
+    </nav>
+</header>
+
+<main class="app-shell" style="opacity: 0;">
+    <aside class="side-rail animate-aside" aria-label="Điều hướng workspace">
+        <a href="#" class="nav-tab is-active magnetic-btn" data-tab="dashboard">
+            <span>Admin Dashboard</span>
+            <small>Review queue & Thống kê</small>
+        </a>
+        <a href="#" class="nav-tab magnetic-btn" data-tab="users">
+            <span>Quản lý tài khoản</span>
+            <small>Đổi role, Khóa/Mở khóa</small>
+        </a>
+        <a href="#" class="nav-tab magnetic-btn" data-tab="feedbacks">
+            <span>Báo cáo sự cố (Feedback)</span>
+            <small>Xem và xử lý lỗi hệ thống</small>
+        </a>
+    </aside>
+
+    <section class="workspace animate-workspace">
+        <div class="workspace-hero">
+            <div>
+                <p class="eyebrow">ADMIN CONTROL CENTER</p>
+                <h1 id="tabTitle" class="text-glow-primary">Admin Dashboard & Review Queue</h1>
+                <p id="tabSubtitle">Quản lý hoạt động hệ thống, phê duyệt tài nguyên AR và cấu hình tài khoản người dùng.</p>
+            </div>
+            <div class="workspace-status">
+                <span>Quản trị viên</span>
+            </div>
+        </div>
+
+        <!-- TAB 1: DASHBOARD (REVIEWS & STATS) -->
+        <div id="tabContent_dashboard" class="tab-pane-content" style="opacity: 1;">
+            <!-- Stats overview -->
+            <div class="row g-4 mb-4 stats-row">
+                <div class="col-md-3">
+                    <div class="metric-card cyber-panel hover-lift p-4 text-center">
+                        <span th:text="${totalUsers}">0</span>
+                        <small>Tổng số người dùng</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card cyber-panel hover-lift p-4 text-center" th:text="${totalScans}">0</div>
+                    <small>Tổng số lượt quét AR</small>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card cyber-panel hover-lift p-4 text-center" th:text="${successfulScans}">0</div>
+                    <small>Quét thành công</small>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card cyber-panel hover-lift p-4 text-center" th:text="${pendingReviewCount}">0</div>
+                    <small>Yêu cầu chờ duyệt</small>
+                </div>
+            </div>
+
+            <!-- Review Queue -->
+            <section class="data-panel cyber-panel queue-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">Hàng chờ kiểm duyệt</p>
+                        <h2>Duyệt nội dung AR mới</h2>
+                    </div>
+                </div>
+                <div class="p-3">
+                    <div th:if="${#lists.isEmpty(pendingReviews)}" class="text-muted p-3 text-center">Hàng đợi kiểm duyệt hiện đang trống.</div>
+                    
+                    <div th:each="rev : ${pendingReviews}" class="review-item p-3 mb-3 d-flex justify-content-between align-items-center gsap-queue-item" th:id="|review_${rev.ar_content_id}|">
+                        <div>
+                            <h4 class="text-white font-weight-bold mb-1" style="font-size:1.05rem;" th:text="${rev.content_title}">Content Title</h4>
+                            <p class="text-secondary small mb-0" th:text="|Người tạo: ${rev.requested_by_name} | Yêu cầu vào: ${rev.requested_at}|">Details</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary btn-sm px-3 magnetic-btn" th:onclick="approveReview([[${rev.ar_content_id}]])">Phê duyệt</button>
+                            <button class="btn btn-danger-soft btn-sm px-3 magnetic-btn" th:onclick="rejectReview([[${rev.ar_content_id}]])">Từ chối</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 2: USERS -->
+        <div id="tabContent_users" class="tab-pane-content d-none" style="opacity: 0;">
+            <section class="data-panel cyber-panel">
+                <div class="panel-heading">
+                    <h2>Quản Lý Tài Khoản Người Dùng</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="table app-table mb-0 align-middle">
+                        <thead>
+                        <tr>
+                            <th>Họ và tên</th>
+                            <th>Email</th>
+                            <th>Vai trò (Roles)</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="u : ${users}" th:id="|user_row_${u.id}|">
+                            <td>
+                                <strong class="text-white" th:text="${u.full_name}">User A</strong>
+                                <div class="text-muted small" th:text="|SĐT: ${u.phone ?: 'N/A'}|">SĐT</div>
+                            </td>
+                            <td th:text="${u.email}">email@artextbook.com</td>
+                            <td>
+                                <span class="badge bg-secondary" th:each="r : ${#strings.arraySplit(u.roles, ',')}" th:text="${r}" style="margin-right: 4px;">STUDENT</span>
+                            </td>
+                            <td>
+                                <span class="badge" th:id="|user_status_badge_${u.id}|" th:classappend="${u.status == 'ACTIVE' ? 'bg-success' : 'bg-danger'}" th:text="${u.status}">ACTIVE</span>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-soft btn-sm magnetic-btn" th:onclick="openEditRolesModal([[${u.id}]], [[${u.full_name}]], [[${u.roles}]])">Phân quyền</button>
+                                    <button class="btn btn-danger-soft btn-sm magnetic-btn" th:if="${u.status == 'ACTIVE'}" th:id="|user_action_btn_${u.id}|" th:onclick="lockUser([[${u.id}]])">Khóa</button>
+                                    <button class="btn btn-soft btn-sm magnetic-btn" th:if="${u.status == 'LOCKED'}" th:id="|user_action_btn_${u.id}|" th:onclick="unlockUser([[${u.id}]])">Mở khóa</button>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- TAB 3: FEEDBACKS -->
+        <div id="tabContent_feedbacks" class="tab-pane-content d-none" style="opacity: 0;">
+            <section class="data-panel cyber-panel">
+                <div class="panel-heading">
+                    <h2>Danh Sách Phản Hồi Sự Cố</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="table app-table align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>Người gửi</th>
+                            <th>Bài học</th>
+                            <th>Loại sự cố</th>
+                            <th>Message báo lỗi</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="fb : ${feedbacks}">
+                            <td>
+                                <strong class="text-white" th:text="${fb.user_name}">Student</strong>
+                                <div class="text-muted small" th:text="${fb.created_at}">Giờ</div>
+                            </td>
+                            <td th:text="${fb.lesson_title ?: 'Chung'}">Tế bào</td>
+                            <td><code th:text="${fb.type}">SCAN_ERROR</code></td>
+                            <td class="small text-secondary" th:text="${fb.message}">Lỗi mô hình.</td>
+                            <td>
+                                <span class="badge" th:classappend="${fb.status == 'NEW' ? 'bg-info' : fb.status == 'RESOLVED' ? 'bg-success' : 'bg-secondary'}" th:text="${fb.status}">NEW</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-soft btn-sm magnetic-btn" th:if="${fb.status == 'NEW'}" th:onclick="resolveFeedback([[${fb.id}]])">Đánh dấu đã sửa</button>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(feedbacks)}">
+                            <td colspan="6" class="text-center text-muted p-3">Chưa nhận được phản hồi báo lỗi nào.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </section>
+</main>
+
+<!-- EDIT ROLES MODAL -->
+<div class="modal fade" id="editRolesModal" tabindex="-1" aria-labelledby="editRolesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="editRolesForm">
+                <input type="hidden" id="editRolesUserId">
+                <div class="modal-header">
+                    <h5 class="modal-title font-weight-bold" id="editRolesModalLabel">Phân quyền tài khoản</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body vstack gap-2 text-start p-4">
+                    <p class="text-secondary small mb-3">Thay đổi quyền hạn cho tài khoản: <strong class="text-white" id="editRolesUserName">User Name</strong></p>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="STUDENT" id="roleStudent">
+                        <label class="form-check-label text-secondary" for="roleStudent">Học sinh (STUDENT)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="TEACHER" id="roleTeacher">
+                        <label class="form-check-label text-secondary" for="roleTeacher">Giáo viên (TEACHER)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="CONTENT_MANAGER" id="roleCms">
+                        <label class="form-check-label text-secondary" for="roleCms">CMS Manager (CONTENT_MANAGER)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="ADMIN" id="roleAdmin">
+                        <label class="form-check-label text-secondary" for="roleAdmin">Quản trị viên (ADMIN)</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost magnetic-btn" data-bs-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-primary magnetic-btn">Cập nhật phân quyền</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS Bundle for Modals -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+    const tabs = document.querySelectorAll('.nav-tab');
+    const tabPanes = document.querySelectorAll('.tab-pane-content');
+    const tabTitle = document.getElementById('tabTitle');
+    const tabSubtitle = document.getElementById('tabSubtitle');
+
+    const tabData = {
+        dashboard: {
+            title: "Admin Dashboard & Review Queue",
+            subtitle: "Quản lý hoạt động hệ thống, phê duyệt tài nguyên AR và cấu hình tài khoản người dùng."
+        },
+        users: {
+            title: "Quản Lý Tài Khoản Người Dùng",
+            subtitle: "Xem danh sách người dùng, kích hoạt, khóa tài khoản hoặc phân quyền vai trò (Roles)."
+        },
+        feedbacks: {
+            title: "Danh Sách Phản Hồi Sự Cố",
+            subtitle: "Xem các báo cáo lỗi quét marker hoặc vỡ mô hình 3D do học sinh gửi về để xử lý."
+        }
+    };
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            const tabName = this.getAttribute('data-tab');
+            const targetPane = document.getElementById('tabContent_' + tabName);
+            const currentPane = document.querySelector('.tab-pane-content:not(.d-none)');
+            
+            if (currentPane === targetPane) return;
+            
+            tabs.forEach(t => t.classList.remove('is-active'));
+            this.classList.add('is-active');
+
+            // GSAP cross fade transition
+            if (currentPane) {
+                gsap.to(currentPane, {
+                    opacity: 0,
+                    y: 15,
+                    duration: 0.25,
+                    onComplete: () => {
+                        currentPane.classList.add('d-none');
+                        targetPane.classList.remove('d-none');
+                        
+                        // Update title info
+                        tabTitle.textContent = tabData[tabName].title;
+                        tabSubtitle.textContent = tabData[tabName].subtitle;
+                        
+                        gsap.fromTo(targetPane, {
+                            opacity: 0,
+                            y: 15
+                        }, {
+                            opacity: 1,
+                            y: 0,
+                            duration: 0.35,
+                            ease: "power2.out"
+                        });
+                    }
+                });
+            } else {
+                targetPane.classList.remove('d-none');
+                tabTitle.textContent = tabData[tabName].title;
+                tabSubtitle.textContent = tabData[tabName].subtitle;
+                gsap.to(targetPane, { opacity: 1, y: 0, duration: 0.35 });
+            }
+        });
+    });
+
+    function approveReview(contentId) {
+        if(!confirm('Bạn có chắc muốn phê duyệt xuất bản nội dung AR này không?')) return;
+        fetch('/api/admin/ar-contents/' + contentId + '/approve', {
+            method: 'POST'
+        })
+        .then(response => {
+            if(response.ok) {
+                var item = document.getElementById('review_' + contentId);
+                // GSAP scale down and fade out
+                gsap.to(item, {
+                    scale: 0.9,
+                    opacity: 0,
+                    height: 0,
+                    padding: 0,
+                    marginBottom: 0,
+                    duration: 0.45,
+                    ease: "power2.inOut",
+                    onComplete: () => { item.remove(); }
+                });
+            } else {
+                alert('Lỗi phê duyệt nội dung.');
+            }
+        });
+    }
+
+    function rejectReview(contentId) {
+        var comment = prompt('Nhập lý do từ chối:');
+        if(comment === null) return;
+        fetch('/api/admin/ar-contents/' + contentId + '/reject', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ comment: comment })
+        })
+        .then(response => {
+            if(response.ok) {
+                var item = document.getElementById('review_' + contentId);
+                // GSAP scale down and fade out
+                gsap.to(item, {
+                    scale: 0.9,
+                    opacity: 0,
+                    height: 0,
+                    padding: 0,
+                    marginBottom: 0,
+                    duration: 0.45,
+                    ease: "power2.inOut",
+                    onComplete: () => { item.remove(); }
+                });
+            } else {
+                alert('Lỗi từ chối nội dung.');
+            }
+        });
+    }
+
+    function lockUser(userId) {
+        if(!confirm('Bạn có chắc muốn khóa tài khoản này không?')) return;
+        fetch(`/api/admin/users/${userId}/lock`, { method: 'POST' })
+            .then(res => {
+                if(res.ok) {
+                    document.getElementById(`user_status_badge_${userId}`).textContent = 'LOCKED';
+                    document.getElementById(`user_status_badge_${userId}`).className = 'badge bg-danger';
+                    const btn = document.getElementById(`user_action_btn_${userId}`);
+                    btn.textContent = 'Mở khóa';
+                    btn.className = 'btn btn-soft btn-sm';
+                    btn.onclick = () => unlockUser(userId);
+                }
+            });
+    }
+
+    function unlockUser(userId) {
+        fetch(`/api/admin/users/${userId}/unlock`, { method: 'POST' })
+            .then(res => {
+                if(res.ok) {
+                    document.getElementById(`user_status_badge_${userId}`).textContent = 'ACTIVE';
+                    document.getElementById(`user_status_badge_${userId}`).className = 'badge bg-success';
+                    const btn = document.getElementById(`user_action_btn_${userId}`);
+                    btn.textContent = 'Khóa';
+                    btn.className = 'btn btn-danger-soft btn-sm';
+                    btn.onclick = () => lockUser(userId);
+                }
+            });
+    }
+
+    const editRolesModal = new bootstrap.Modal(document.getElementById('editRolesModal'));
+    const editRolesForm = document.getElementById('editRolesForm');
+
+    function openEditRolesModal(userId, fullName, currentRoles) {
+        document.getElementById('editRolesUserId').value = userId;
+        document.getElementById('editRolesUserName').textContent = fullName;
+
+        document.getElementById('roleStudent').checked = currentRoles.includes('STUDENT');
+        document.getElementById('roleTeacher').checked = currentRoles.includes('TEACHER');
+        document.getElementById('roleCms').checked = currentRoles.includes('CONTENT_MANAGER');
+        document.getElementById('roleAdmin').checked = currentRoles.includes('ADMIN');
+
+        editRolesModal.show();
+    }
+
+    editRolesForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const userId = document.getElementById('editRolesUserId').value;
+        const roles = [];
+        if (document.getElementById('roleStudent').checked) roles.push('STUDENT');
+        if (document.getElementById('roleTeacher').checked) roles.push('TEACHER');
+        if (document.getElementById('roleCms').checked) roles.push('CONTENT_MANAGER');
+        if (document.getElementById('roleAdmin').checked) roles.push('ADMIN');
+
+        fetch(`/api/admin/users/${userId}/roles`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roles: roles })
+        })
+        .then(res => {
+            if(res.ok) {
+                alert('Cập nhật phân quyền thành công!');
+                editRolesModal.hide();
+                window.location.reload();
+            }
+        });
+    });
+
+    function resolveFeedback(fbId) {
+        fetch(`/api/admin/feedbacks/${fbId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'RESOLVED', note: 'Đã được xử lý bởi Admin' })
+        })
+        .then(res => {
+            if(res.ok) {
+                alert('Đã cập nhật trạng thái lỗi thành công!');
+                window.location.reload();
+            }
+        });
+    }
+
+    }
+
+    window.addEventListener('load', () => {
+        // Page entrance reveals
+        gsap.to("main", { opacity: 1, duration: 0.5 });
+        gsap.from(".animate-aside", { x: -30, opacity: 0, duration: 0.6, ease: "power2.out" });
+        gsap.from(".animate-workspace", { x: 30, opacity: 0, duration: 0.6, ease: "power2.out" }, "-=0.4");
+        
+        // Stagger metrics
+        gsap.from(".stats-row .col-md-3", {
+            opacity: 0,
+            y: 20,
+            duration: 0.7,
+            stagger: 0.1,
+            ease: "power2.out",
+            delay: 0.2
+        });
+        
+        // Stagger review queue queue-panel
+        gsap.from(".gsap-queue-item", {
+            opacity: 0,
+            y: 20,
+            duration: 0.7,
+            stagger: 0.1,
+            ease: "power2.out",
+            delay: 0.4
+        }, "-=0.4");
+
+        // Magnetic buttons are auto-initialized by cyber-hud.js
+    });
+</script>
+</body>
+</html>

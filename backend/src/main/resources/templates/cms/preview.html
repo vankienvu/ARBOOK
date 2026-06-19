@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Xem Trước AR - AR Textbook</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css?v=1.2">
+    <!-- Google Model Viewer for WebGL 3D Preview -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+    <!-- GSAP for creative motion design -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="/js/cyber-hud.js" defer></script>
+</head>
+<body class="app-body">
+<!-- Space Canvas Background for Cinematic HUD Particles -->
+<canvas id="space-canvas" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:-1;"></canvas>
+
+<header class="topbar app-topbar">
+    <nav class="container-fluid app-nav">
+        <a class="brand-mark magnetic-btn" href="/">
+            <span class="brand-cube" aria-hidden="true"></span>
+            <span>AR Textbook Workspace</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn btn-soft btn-sm magnetic-btn" href="/student/scan" style="background: rgba(168, 85, 247, 0.2); border-color: var(--neon-indigo); color: #fff;">Quét AR</a>
+            <a class="btn btn-ghost btn-sm magnetic-btn" href="/guide">Hướng dẫn</a>
+            <form method="post" action="/logout" sec:authorize="isAuthenticated()" class="d-inline">
+                <button class="btn btn-danger-soft btn-sm magnetic-btn" type="submit">Đăng xuất</button>
+            </form>
+        </div>
+    </nav>
+</header>
+
+<main class="app-shell">
+    <aside class="side-rail" aria-label="Điều hướng workspace">
+        <a href="/cms/dashboard" class="is-active magnetic-btn">
+            <span>Quản Lý Nội Dung</span>
+            <small>Marker, model, duyệt AR</small>
+        </a>
+    </aside>
+
+    <section class="workspace">
+        <div class="workspace-hero">
+            <div>
+                <p class="eyebrow text-glow-primary">CMS workspace</p>
+                <h1 th:text="${title}">Xem Trước Nội Dung AR</h1>
+                <p th:text="${subtitle}" class="text-secondary">Xem metadata và mô hình 3D trước khi gửi duyệt.</p>
+            </div>
+            <div class="workspace-status" aria-label="Trạng thái">
+                <span style="color: var(--primary-color);">CMS Manager</span>
+            </div>
+        </div>
+
+        <div class="row g-4" style="margin-bottom: 2rem;">
+            <!-- Column 3D Viewer -->
+            <div class="col-lg-7" th:if="${modelUrl != null}">
+                <section class="data-panel glass-panel h-100 mb-0">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">WebGL Interactive Viewer</p>
+                            <h2>Xem trước Mô hình 3D</h2>
+                        </div>
+                    </div>
+                    <div class="card bg-dark d-flex justify-content-center align-items-center" style="height: 450px; border-radius: 0 0 16px 16px; border: none; overflow: hidden; position: relative; background: radial-gradient(circle at center, #130a21 0%, #050209 100%) !important;">
+                        <model-viewer id="previewViewer"
+                                      th:src="${modelUrl}" 
+                                      alt="Xem trước mô hình 3D" 
+                                      auto-rotate 
+                                      camera-controls 
+                                      draco-decoder-path="https://www.gstatic.com/draco/versioned/decoders/1.5.6/"
+                                      style="width: 100%; height: 100%; --poster-color: transparent;">
+                        </model-viewer>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Column Metadata -->
+            <div class="col-lg-5">
+                <section class="data-panel glass-panel h-100 mb-0">
+                    <div class="panel-heading">
+                        <h2>Thông Tin Thuộc Tính</h2>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table app-table align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th>Cột thông tin</th>
+                                <th>Dữ liệu / Giá trị</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="row : ${rows}">
+                                <td th:text="${row['label']}">Thuộc tính</td>
+                                <td th:text="${row['value']}" style="color: #fff; font-weight: 600;">Giá trị</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-3 border-top border-secondary text-end" style="border-color: var(--border-color) !important;">
+                        <a href="/cms/dashboard" class="btn btn-ghost btn-sm magnetic-btn">Quay lại Dashboard</a>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </section>
+</main>
+</body>
+</html>

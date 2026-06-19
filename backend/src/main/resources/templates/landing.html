@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ARBook - Hệ Thống Học Tập 3D AR Thông Minh</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css?v=1.3">
+    
+    <!-- GSAP & ScrollTrigger for Creative Motion -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script src="/js/cyber-hud.js" defer></script>
+
+    <style>
+        #space-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .pricing-section {
+            padding: 120px 20px;
+            background: radial-gradient(circle at bottom, rgba(255, 255, 255, 0.04) 0%, transparent 70%);
+            position: relative;
+        }
+        .price-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 48px 32px;
+            text-align: center;
+            transition: all var(--transition-normal);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        .price-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--border-hover);
+            box-shadow: var(--shadow-neon-hover);
+            background: var(--bg-card-hover);
+        }
+        .price-card.featured {
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: var(--shadow-neon);
+        }
+        .price-card.featured::before {
+            content: "PHỔ BIẾN NHẤT";
+            position: absolute;
+            top: 24px;
+            right: -38px;
+            background: var(--grad-purple-pink);
+            color: #000;
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 6px 40px;
+            transform: rotate(45deg);
+            letter-spacing: 0.05em;
+        }
+        .price-num {
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: #fff;
+            margin: 20px 0;
+            background: var(--grad-indigo-blue);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .price-num span {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        .feature-icon-check {
+            color: var(--secondary-color);
+            font-weight: bold;
+        }
+        .feature-icon-cross {
+            color: var(--text-muted);
+        }
+        
+        .hero-title-container {
+            perspective: 1000px;
+        }
+
+        .scroll-trigger-section {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+    </style>
+</head>
+<body class="landing-body" style="position: relative; overflow-x: hidden;">
+
+<!-- Canvas Background for Cosmic Particles -->
+<canvas id="space-canvas"></canvas>
+
+<header class="topbar">
+    <nav class="container-fluid app-nav">
+        <a class="brand-mark gsap-nav-reveal" href="/">
+            <span class="brand-cube" aria-hidden="true"></span>
+            <span class="text-glow-primary">ARBook</span>
+        </a>
+        <div class="nav-actions gsap-nav-reveal">
+            <a class="btn btn-soft btn-sm px-3 magnetic-btn" href="/student/scan" style="background: rgba(255, 255, 255, 0.08) !important; border-color: rgba(255, 255, 255, 0.15) !important; color: #fff !important;">Quét AR</a>
+            <a class="btn btn-ghost btn-sm magnetic-btn" href="/guide">Hướng dẫn</a>
+            <a sec:authorize="!isAuthenticated()" class="btn btn-primary btn-sm px-4 magnetic-btn" href="/login">Đăng nhập</a>
+            <span sec:authorize="isAuthenticated()" class="d-inline-flex gap-2 align-items-center">
+                <a sec:authorize="hasRole('ADMIN')" class="btn btn-soft btn-sm magnetic-btn" href="/admin/dashboard">Admin Panel</a>
+                <a sec:authorize="hasRole('TEACHER')" class="btn btn-soft btn-sm magnetic-btn" href="/teacher/dashboard">Workspace</a>
+                <a sec:authorize="hasRole('STUDENT')" class="btn btn-soft btn-sm magnetic-btn" href="/student/dashboard">Workspace</a>
+                <a sec:authorize="hasRole('CONTENT_MANAGER')" class="btn btn-soft btn-sm magnetic-btn" href="/cms/dashboard">Workspace</a>
+                <form method="post" action="/logout" class="d-inline m-0">
+                    <button class="btn btn-danger-soft btn-sm magnetic-btn" type="submit">Đăng xuất</button>
+                </form>
+            </span>
+        </div>
+    </nav>
+</header>
+
+<main>
+    <!-- HERO SECTION -->
+    <section class="hero-stage">
+        <div class="hero-visual" aria-hidden="true">
+            <img class="hero-marker hero-marker-main" src="/img/markers/BIO_CELL_001.png" alt="">
+            <img class="hero-marker hero-marker-side" src="/img/markers/SOLAR_SYSTEM_001.png" alt="">
+            <div class="scan-frame"></div>
+            <div class="model-cloud">
+                <span class="model-node model-node-large"></span>
+                <span class="model-node model-node-warm"></span>
+                <span class="model-node model-node-violet"></span>
+                <span class="model-ring"></span>
+            </div>
+        </div>
+        <div class="container">
+            <div class="hero-copy">
+                <p class="eyebrow gsap-hero-reveal">EdTech SaaS AR Platform</p>
+                <div class="hero-title-container">
+                    <h1 class="gsap-hero-reveal glitch-title text-glow-primary">ARBook</h1>
+                </div>
+                <p class="hero-lede gsap-hero-reveal">
+                    Giải pháp học tập thực tế tăng cường 3D toàn diện cho giáo dục hiện đại.
+                    Biến trang sách tĩnh thành các mô hình khoa học 3D tương tác động trực quan qua camera webcam hoặc thiết bị di động.
+                </p>
+                <div class="hero-actions gsap-hero-reveal">
+                    <a class="btn btn-primary btn-lg px-4 magnetic-btn" href="/login">Khám phá Ngay</a>
+                    <a class="btn btn-soft btn-lg px-4 magnetic-btn" href="/register">Đăng ký Tài khoản</a>
+                </div>
+                <div class="hero-proof gsap-hero-reveal">
+                    <span>Multi-role: <strong>Student, Teacher, CMS, Admin</strong></span>
+                    <span>Vuforia & WebGL: <strong>3D Model Preview</strong></span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- METRICS SECTION -->
+    <section class="container overview-strip scroll-trigger-section" aria-label="Tổng quan hệ thống">
+        <div class="metric-card glass-panel hover-lift">
+            <span th:text="${counts.subjects}">0</span>
+            <small>Môn học</small>
+        </div>
+        <div class="metric-card glass-panel hover-lift">
+            <span th:text="${counts.textbooks}">0</span>
+            <small>Sách Giáo Khoa</small>
+        </div>
+        <div class="metric-card glass-panel hover-lift">
+            <span th:text="${counts.lessons}">0</span>
+            <small>Bài học 3D</small>
+        </div>
+        <div class="metric-card glass-panel hover-lift">
+            <span th:text="${counts.arContents}">0</span>
+            <small>Tài nguyên AR</small>
+        </div>
+    </section>
+
+    <!-- CORE WORKSPACES -->
+    <section class="container section-block scroll-trigger-section">
+        <div class="section-heading text-center mb-5">
+            <p class="eyebrow">Workspaces</p>
+            <h2 class="text-glow-primary">Phân Hệ Vai Trò Quản Trị & Học Tập</h2>
+        </div>
+        <div class="role-grid">
+            <a class="role-card cyber-panel hover-lift" href="/student/dashboard">
+                <span class="role-kicker text-glow-secondary">Student</span>
+                <strong>Học và quét AR</strong>
+                <small>Xem bài học, xoay mô hình 3D WebGL, chạy hoạt cảnh sinh học và làm bài kiểm tra quiz lấy điểm.</small>
+            </a>
+            <a class="role-card cyber-panel hover-lift" href="/teacher/dashboard">
+                <span class="role-kicker text-glow-secondary">Teacher</span>
+                <strong>Giao bài & Báo cáo lớp</strong>
+                <small>Tạo bài tập AR, giao cho lớp học, xem thống kê phổ điểm quiz của học sinh bằng biểu đồ Chart.js.</small>
+            </a>
+            <a class="role-card cyber-panel hover-lift" href="/cms/dashboard">
+                <span class="role-kicker text-glow-secondary">Content</span>
+                <strong>CMS Biên tập nội dung</strong>
+                <small>Khai báo marker trang sách, tải lên file GLB/GLTF, xem thử WebGL Preview và duyệt nội dung.</small>
+            </a>
+            <a class="role-card cyber-panel hover-lift" href="/admin/dashboard">
+                <span class="role-kicker text-glow-secondary">Admin</span>
+                <strong>Vận hành hệ thống</strong>
+                <small>Quản lý tài khoản và phân quyền, phê duyệt nội dung AR trong hàng chờ và xem báo lỗi.</small>
+            </a>
+        </div>
+    </section>
+
+    <!-- MARKER SAMPLE -->
+    <section class="container section-block scroll-trigger-section">
+        <div class="section-heading">
+            <p class="eyebrow">Scan set</p>
+            <h2 class="text-glow-primary">Marker Mẫu Dùng Cho Thực Hành</h2>
+        </div>
+        <div class="marker-grid">
+            <article class="marker-card glass-panel hover-lift">
+                <img src="/img/markers/BIO_CELL_001.png" alt="BIO_CELL_001 marker">
+                <div>
+                    <span class="badge bg-secondary mb-1">BIO_CELL_001</span>
+                    <strong>Cấu tạo tế bào</strong>
+                    <small class="d-block text-secondary mt-1">Mô hình tế bào 3D với nhân, ty thể và màng sinh chất.</small>
+                </div>
+            </article>
+            <article class="marker-card glass-panel hover-lift">
+                <img src="/img/markers/SOLAR_SYSTEM_001.png" alt="SOLAR_SYSTEM_001 marker">
+                <div>
+                    <span class="badge bg-secondary mb-1">SOLAR_SYSTEM_001</span>
+                    <strong>Hệ Mặt Trời</strong>
+                    <small class="d-block text-secondary mt-1">Quỹ đạo chuyển động của các hành tinh quanh mặt trời.</small>
+                </div>
+            </article>
+            <article class="marker-card glass-panel hover-lift">
+                <img src="/img/markers/HEART_001.png" alt="HEART_001 marker">
+                <div>
+                    <span class="badge bg-secondary mb-1">HEART_001</span>
+                    <strong>Tim người</strong>
+                    <small class="d-block text-secondary mt-1">Nhịp đập mô phỏng và cấu trúc buồng tim chi tiết.</small>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <!-- PRICING PACKAGES -->
+    <section class="pricing-section scroll-trigger-section">
+        <div class="container">
+            <div class="section-heading text-center mb-5">
+                <p class="eyebrow">Pricing plans</p>
+                <h2 class="text-glow-primary">Gói Dịch Vụ SaaS Linh Hoạt</h2>
+                <p class="text-secondary small mt-2">Lựa chọn gói dịch vụ phù hợp với nhu cầu học tập cá nhân hoặc giảng dạy tại trường.</p>
+            </div>
+            
+            <div class="row g-4 justify-content-center">
+                <!-- Free Plan -->
+                <div class="col-md-4">
+                    <div class="price-card cyber-panel animate-border-glow">
+                        <h3 class="text-white font-weight-bold" style="font-size: 1.35rem;">Free Trial</h3>
+                        <p class="text-muted small">Dành cho cá nhân học sinh trải nghiệm thử hệ thống.</p>
+                        <div class="price-num">0K <span>/ tháng</span></div>
+                        <ul class="list-unstyled text-start my-4 vstack gap-2">
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Quét tối đa 3 marker demo</span></li>
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Xem mô hình 3D tương tác WebGL</span></li>
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Làm tối đa 1 Quiz kiểm tra</span></li>
+                            <li class="feature-item text-muted"><span class="feature-icon-cross">✗</span> <span>Giáo viên giao bài tập</span></li>
+                            <li class="feature-item text-muted"><span class="feature-icon-cross">✗</span> <span>Tải lên mô hình 3D cá nhân</span></li>
+                        </ul>
+                        <a href="/register?plan=free" class="btn btn-soft btn-sm mt-auto w-100 magnetic-btn">Bắt đầu miễn phí</a>
+                    </div>
+                </div>
+                <!-- Teacher Plan -->
+                <div class="col-md-4">
+                    <div class="price-card cyber-panel featured animate-border-glow">
+                        <h3 class="text-white font-weight-bold" style="font-size: 1.35rem;">Teacher Premium</h3>
+                        <p class="text-muted small">Dành cho Giáo viên bộ môn giảng dạy trực quan.</p>
+                        <div class="price-num">190K <span>/ tháng</span></div>
+                        <ul class="list-unstyled text-start my-4 vstack gap-2">
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Không giới hạn số lượng bài học</span></li>
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Quản lý lớp học ảo riêng biệt</span></li>
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Giao bài tập AR & chấm điểm Quiz</span></li>
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Phân tích phổ điểm Chart.js lớp</span></li>
+                            <li class="feature-item text-muted"><span class="feature-icon-cross">✗</span> <span>Đa trường học</span></li>
+                        </ul>
+                        <a sec:authorize="!isAuthenticated()" href="/register?plan=teacher" class="btn btn-primary btn-sm mt-auto w-100 magnetic-btn">Đăng ký Premium</a>
+                        <a sec:authorize="isAuthenticated()" href="/payment/checkout" class="btn btn-primary btn-sm mt-auto w-100 magnetic-btn" style="background: var(--grad-purple-pink) !important; color: #000 !important; border: none; box-shadow: 0 0 15px rgba(255, 255, 255, 0.25) !important;">Nâng cấp Premium</a>
+                    </div>
+                </div>
+                <!-- School Plan -->
+                <div class="col-md-4">
+                    <div class="price-card cyber-panel animate-border-glow">
+                        <h3 class="text-white font-weight-bold" style="font-size: 1.35rem;">School Enterprise</h3>
+                        <p class="text-muted small">Dành cho các trường học và tổ chức giáo dục.</p>
+                        <div class="price-num">990K <span>/ tháng</span></div>
+                        <ul class="list-unstyled text-start my-4 vstack gap-2">
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Quản trị đa trường & phân vùng lớp</span></li>
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Tự tải lên mô hình 3D cá nhân (Draco)</span></li>
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Tích hợp Vuforia Image Targets mây</span></li>
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Báo cáo tiến độ cấp sở</span></li>
+                            <li class="feature-item"><span class="feature-icon-check">✓</span> <span>Cam kết SLA & Hỗ trợ 24/7</span></li>
+                        </ul>
+                        <a href="mailto:sales@artextbook.com" class="btn btn-soft btn-sm mt-auto w-100 magnetic-btn">Liên hệ bộ phận Sales</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="text-center text-muted small py-4 border-top border-secondary" style="background: rgba(5, 2, 9, 0.9); z-index: 10; position: relative;">
+    &copy; 2026 ARBook Educational SaaS Platform. All Rights Reserved.
+</footer>
+
+<script>
+    // GSAP animations for immersive design
+    window.addEventListener('load', () => {
+        // Nav reveal
+        gsap.from(".gsap-nav-reveal", {
+            duration: 1,
+            y: -20,
+            opacity: 0,
+            stagger: 0.1,
+            ease: "power3.out"
+        });
+
+        // Hero title & actions reveals
+        gsap.from(".gsap-hero-reveal", {
+            duration: 1.4,
+            y: 50,
+            opacity: 0,
+            stagger: 0.15,
+            ease: "power4.out"
+        });
+
+        // Float effect for landing page markers
+        gsap.to(".hero-marker-main", {
+            y: -15,
+            rotation: 8,
+            duration: 6,
+            repeat: -1,
+            yoyo: true,
+            ease: "sine.inOut"
+        });
+
+        gsap.to(".hero-marker-side", {
+            y: 12,
+            rotation: -10,
+            duration: 7.5,
+            repeat: -1,
+            yoyo: true,
+            ease: "sine.inOut"
+        });
+
+        // Floating nodes effect
+        gsap.to(".model-cloud", {
+            y: -15,
+            duration: 5,
+            repeat: -1,
+            yoyo: true,
+            ease: "power1.inOut"
+        });
+
+        // ScrollTrigger for sections reveal
+        gsap.registerPlugin(ScrollTrigger);
+
+        document.querySelectorAll(".scroll-trigger-section").forEach(section => {
+            gsap.to(section, {
+                scrollTrigger: {
+                    trigger: section,
+                    start: "top 85%",
+                    toggleActions: "play none none none"
+                },
+                opacity: 1,
+                y: 0,
+                duration: 1,
+                ease: "power3.out"
+            });
+        });
+    });
+</script>
+</body>
+</html>

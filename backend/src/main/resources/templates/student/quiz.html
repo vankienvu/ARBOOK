@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Làm Bài Quiz - AR Textbook</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css?v=1.2">
+    <!-- GSAP for creative motion design -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="/js/cyber-hud.js" defer></script>
+    <style>
+        .question-card {
+            background: rgba(255, 255, 255, 0.01) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--radius-lg) !important;
+            padding: 24px !important;
+            margin-bottom: 24px !important;
+            transition: all var(--transition-normal);
+        }
+        .question-card:hover {
+            border-color: rgba(168, 85, 247, 0.2) !important;
+            box-shadow: 0 4px 20px rgba(168, 85, 247, 0.05);
+        }
+        .option-item {
+            background: rgba(255, 255, 255, 0.01) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--radius-md) !important;
+            padding: 16px 20px !important;
+            cursor: pointer;
+            transition: background var(--transition-fast), border-color var(--transition-fast) !important;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-secondary);
+        }
+        .option-item:hover {
+            background: rgba(168, 85, 247, 0.08) !important;
+            border-color: rgba(168, 85, 247, 0.3) !important;
+            color: #fff !important;
+        }
+        .option-item input[type="radio"],
+        .option-item input[type="checkbox"] {
+            accent-color: var(--primary-color) !important;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .option-item.is-selected {
+            background: rgba(168, 85, 247, 0.12) !important;
+            border-color: var(--primary-color) !important;
+            color: #fff !important;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.1);
+        }
+    </style>
+</head>
+<body class="app-body">
+<header class="topbar app-topbar">
+    <nav class="container-fluid app-nav">
+        <a class="brand-mark" href="/">
+            <span class="brand-cube" aria-hidden="true"></span>
+            <span class="text-glow-primary">AR Textbook Workspace</span>
+        </a>
+        <div class="nav-actions">
+            <a class="btn btn-soft btn-sm px-3 magnetic-btn" href="/student/scan" style="background: rgba(168, 85, 247, 0.15) !important; border-color: rgba(168, 85, 247, 0.3) !important; color: #fff !important;">Quét AR</a>
+            <a class="btn btn-ghost btn-sm magnetic-btn" href="/guide">Hướng dẫn</a>
+            <form method="post" action="/logout" sec:authorize="isAuthenticated()" class="d-inline">
+                <button class="btn btn-danger-soft btn-sm magnetic-btn" type="submit">Đăng xuất</button>
+            </form>
+        </div>
+    </nav>
+</header>
+
+<main class="app-shell" style="opacity: 0;">
+    <aside class="side-rail animate-aside" aria-label="Điều hướng workspace">
+        <a href="/student/dashboard" class="is-active magnetic-btn">
+            <span>Học Sinh</span>
+            <small>Bài học, quiz, tiến độ</small>
+        </a>
+        <a href="/student/scan" class="magnetic-btn">
+            <span>Quét Marker AR</span>
+            <small>Camera quét trực tiếp</small>
+        </a>
+    </aside>
+
+    <section class="workspace animate-workspace">
+        <div class="workspace-hero">
+            <div>
+                <p class="eyebrow">Interactive Quiz Workspace</p>
+                <h1 th:text="${title}">Làm Bài Kiểm Tra</h1>
+                <p th:text="${subtitle}">Trả lời câu hỏi trắc nghiệm bên dưới và nộp bài.</p>
+            </div>
+            <div class="workspace-status" aria-label="Trạng thái demo">
+                <span>Máy chủ hoạt động</span>
+            </div>
+        </div>
+
+        <div th:if="${questions != null}" class="data-panel cyber-panel" style="margin-bottom: 2rem;">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Quiz thực hành khoa học</p>
+                    <h2>Câu hỏi trắc nghiệm kiến thức</h2>
+                </div>
+            </div>
+            <div class="p-4">
+                <form id="quizForm">
+                    <div th:each="q : ${questions}" class="question-card gsap-question">
+                        <h4 class="text-white mb-3" style="font-weight: 700; font-size: 1.15rem;" th:text="|Câu ${q.order_no}: ${q.question_text}|">Câu hỏi</h4>
+                        
+                        <div class="options-list vstack gap-2">
+                            <div th:each="a : ${answers}" th:if="${a.question_id == q.id}" class="option-item">
+                                <input th:type="${q.question_type == 'MULTIPLE_CHOICE' ? 'checkbox' : 'radio'}"
+                                       th:name="|q_${q.id}|"
+                                       th:value="${a.id}"
+                                       th:id="|ans_${a.id}|"
+                                       onchange="toggleOptionSelection(this)">
+                                <label th:for="|ans_${a.id}|" th:text="${a.answer_text}" style="cursor:pointer; width:100%;">Đáp án</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary mt-3 px-5 magnetic-btn">Nộp bài làm</button>
+                </form>
+                
+                <div id="quizResult" class="mt-4 p-5 rounded text-center cyber-panel" style="display:none; border-color: rgba(168, 85, 247, 0.2) !important;">
+                    <div class="brand-cube mb-4 mx-auto" style="width: 48px; height: 48px; background: linear-gradient(135deg, #a855f7, #ec4899);"></div>
+                    <h3 class="mb-2" id="quizScoreText" style="font-size: 2rem; font-weight: 800;">Kết quả: 0 / 10</h3>
+                    <p id="quizFeedbackText" class="text-secondary small max-width-320 mx-auto">Bạn đã hoàn thành xuất sắc bài tập.</p>
+                    <a href="/student/dashboard" class="btn btn-soft btn-sm mt-4 px-4 magnetic-btn">Trở về Dashboard</a>
+                </div>
+            </div>
+
+            <script th:inline="javascript">
+                var quizId = [[${quizId}]];
+                
+                // Visual helper to highlight selected option item using GSAP scale
+                function toggleOptionSelection(input) {
+                    const card = input.closest('.question-card');
+                    if (input.type === 'radio') {
+                        card.querySelectorAll('.option-item').forEach(el => {
+                            el.classList.remove('is-selected');
+                            gsap.to(el, { scale: 1, duration: 0.2 });
+                        });
+                    }
+                    const optionItem = input.closest('.option-item');
+                    if (input.checked) {
+                        optionItem.classList.add('is-selected');
+                        gsap.to(optionItem, { scale: 1.015, duration: 0.2 });
+                    } else {
+                        optionItem.classList.remove('is-selected');
+                        gsap.to(optionItem, { scale: 1, duration: 0.2 });
+                    }
+                }
+
+                function getCookie(name) {
+                    let value = "; " + document.cookie;
+                    let parts = value.split("; " + name + "=");
+                    if (parts.length === 2) return parts.pop().split(";").shift();
+                }
+
+                document.getElementById('quizForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var answersMap = {};
+                    document.querySelectorAll('.question-card').forEach(function(card) {
+                        var inputs = card.querySelectorAll('input:checked');
+                        inputs.forEach(function(input) {
+                            var qId = parseInt(input.name.replace('q_', ''));
+                            if (!answersMap[qId]) {
+                                answersMap[qId] = [];
+                            }
+                            answersMap[qId].push(parseInt(input.value));
+                        });
+                    });
+
+                    var answers = [];
+                    for (var qId in answersMap) {
+                        answers.push({
+                            questionId: parseInt(qId),
+                            answerIds: answersMap[qId]
+                        });
+                    }
+
+                    fetch('/api/quizzes/' + quizId + '/submit', {
+                         method: 'POST',
+                         headers: {
+                             'Content-Type': 'application/json',
+                             'X-XSRF-TOKEN': getCookie('XSRF-TOKEN')
+                         },
+                         body: JSON.stringify({ answers: answers })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        var quizForm = document.getElementById('quizForm');
+                        var resDiv = document.getElementById('quizResult');
+                        var scoreText = document.getElementById('quizScoreText');
+                        var feedbackText = document.getElementById('quizFeedbackText');
+                        
+                        var result = data.data || data;
+                        
+                        // GSAP transitions to swap form and result panel
+                        gsap.to(quizForm, {
+                            opacity: 0,
+                            y: -20,
+                            duration: 0.4,
+                            onComplete: () => {
+                                quizForm.style.display = 'none';
+                                resDiv.style.display = 'block';
+                                
+                                gsap.fromTo(resDiv, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 });
+                                
+                                if(result.score !== undefined) {
+                                    // Animated number counting
+                                    const scoreObj = { val: 0 };
+                                    gsap.to(scoreObj, {
+                                        val: result.score,
+                                        duration: 1.2,
+                                        ease: "power2.out",
+                                        onUpdate: () => {
+                                            scoreText.textContent = 'Kết quả: ' + Math.round(scoreObj.val) + ' / ' + result.totalScore;
+                                        }
+                                    });
+                                    
+                                    scoreText.className = result.passed ? 'text-success mb-2 font-weight-bold' : 'text-danger mb-2 font-weight-bold';
+                                    feedbackText.innerHTML = result.passed 
+                                        ? '<strong>Chúc mừng!</strong> Bạn đã vượt qua bài kiểm tra.' 
+                                        : '<strong>Hãy thử lại!</strong> Điểm số chưa đạt yêu cầu.';
+                                } else {
+                                    scoreText.textContent = 'Nộp bài thành công';
+                                    scoreText.className = 'text-success mb-2 font-weight-bold';
+                                    feedbackText.textContent = data.message || 'Kết quả đã được ghi nhận.';
+                                }
+                                // Magnetic buttons are auto-initialized by cyber-hud.js
+                                resDiv.scrollIntoView({ behavior: 'smooth' });
+                            }
+                        });
+                    })
+                    .catch(err => {
+                        alert('Lỗi nộp bài: ' + err.message);
+                    });
+                });
+            </script>
+        </div>
+    </section>
+</main>
+
+<script>
+    window.addEventListener('load', () => {
+        // Page entry animations
+        gsap.to("main", { opacity: 1, duration: 0.5 });
+        gsap.from(".animate-aside", { x: -30, opacity: 0, duration: 0.6, ease: "power2.out" });
+        gsap.from(".animate-workspace", { x: 30, opacity: 0, duration: 0.6, ease: "power2.out" }, "-=0.4");
+        
+        // Stagger questions loading
+        gsap.from(".gsap-question", {
+            opacity: 0,
+            y: 20,
+            duration: 0.7,
+            stagger: 0.12,
+            ease: "power2.out",
+            delay: 0.3
+        });
+    });
+</script>
+</body>
+</html>
